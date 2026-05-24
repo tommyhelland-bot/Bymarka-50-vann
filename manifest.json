@@ -1,14 +1,27 @@
 {
   "name": "Bymarka 50 Vann",
   "short_name": "Bymarka",
-  "description": "14 dagsturer til 50 vann i Bymarka og Leinstrandmarka",
-  "start_url": "/index.html",
+  "description": "14 dagsturer til 50 vann i Bymarka og Leinstrandmarka i Trondheim",
+  "start_url": "/Bymarka-50-vann/",
+  "scope": "/Bymarka-50-vann/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#1c3a28",
   "theme_color": "#1c3a28",
-  "orientation": "any",
+  "lang": "no",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
-  ]
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["travel", "outdoors", "navigation"]
 }
