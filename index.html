@@ -8,70 +8,57 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Bymarka">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
 <title>Bymarka 50 Vann</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1c3a28; color: #e8dfc0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
-  /* Header */
-  #header { background: #1c3a28; padding: 10px 14px; display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #7aad5a; flex-shrink: 0; safe-area-inset-top: env(safe-area-inset-top); padding-top: calc(10px + env(safe-area-inset-top)); }
-  #header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; }
+  #header { background: #1c3a28; padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top)); display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #7aad5a; flex-shrink: 0; }
+  #header h1 { font-size: 16px; font-weight: 700; }
   #header .sub { font-size: 10px; color: #9aba7a; }
-  #menu-btn { margin-left: auto; background: rgba(122,173,90,0.2); border: 1px solid #7aad5a; color: #e8dfc0; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; }
+  #menu-btn { margin-left: auto; background: rgba(122,173,90,0.2); border: 1px solid #7aad5a; color: #e8dfc0; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; white-space: nowrap; }
 
-  /* Main layout */
   #app { display: flex; flex: 1; overflow: hidden; position: relative; }
+  #map { flex: 1; z-index: 0; }
 
-  /* Map */
-  #map { flex: 1; }
-
-  /* Slide-in panel */
-  #panel { position: absolute; left: 0; top: 0; bottom: 0; width: 280px; background: #1c3a28; border-right: 2px solid #7aad5a; overflow-y: auto; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 100; }
+  #panel { position: absolute; left: 0; top: 0; bottom: 0; width: 285px; background: #1c3a28; border-right: 2px solid #7aad5a; overflow-y: auto; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 1000; }
   #panel.open { transform: translateX(0); }
   #panel-header { padding: 14px 12px 8px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(122,173,90,0.3); }
-  #panel-header h2 { font-size: 13px; color: #7aad5a; text-transform: uppercase; letter-spacing: 1.5px; }
-  #close-btn { background: none; border: none; color: #7aad5a; font-size: 20px; cursor: pointer; padding: 0 4px; }
+  #panel-header h2 { font-size: 12px; color: #7aad5a; text-transform: uppercase; letter-spacing: 1.5px; }
+  #close-btn { background: none; border: none; color: #7aad5a; font-size: 22px; cursor: pointer; }
 
-  /* Tour items */
-  .tour-item { padding: 10px 14px; cursor: pointer; border-left: 4px solid transparent; border-bottom: 1px solid rgba(122,173,90,0.1); }
+  .tour-item { padding: 9px 13px; cursor: pointer; border-left: 4px solid transparent; border-bottom: 1px solid rgba(122,173,90,0.1); }
   .tour-item.active { background: rgba(122,173,90,0.15); }
-  .tour-row { display: flex; align-items: center; gap: 9px; }
-  .tour-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
-  .tour-name { font-size: 13px; color: #e8dfc0; }
+  .tour-row { display: flex; align-items: center; gap: 8px; }
+  .tour-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .tour-name { font-size: 12px; color: #e8dfc0; }
   .tour-name.bold { font-weight: bold; }
   .tour-meta { font-size: 10px; color: #7aad5a; margin-top: 2px; }
-  .tour-detail { display: none; padding: 8px 0 4px 20px; }
+  .tour-detail { display: none; padding: 7px 0 3px 18px; }
   .tour-detail.open { display: block; }
-  .tour-parking { font-size: 10px; color: #b0c890; margin-bottom: 6px; }
-  .tour-lake-item { font-size: 11px; color: #e8dfc0; padding: 2px 0; }
-  .tour-lake-item .lnum { font-weight: bold; }
-  .tour-lake-item .lgrid { color: #7aad5a; font-size: 9px; }
+  .tour-parking { font-size: 10px; color: #b0c890; margin-bottom: 5px; }
+  .tour-lake-item { font-size: 11px; color: #e8dfc0; padding: 1px 0; }
+  .lnum { font-weight: bold; }
 
-  /* Huts section */
-  #huts-section { padding: 10px 14px; border-top: 1px solid rgba(122,173,90,0.3); margin-top: 4px; }
-  #huts-section h3 { font-size: 11px; color: #7aad5a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  #huts-section { padding: 10px 13px; border-top: 1px solid rgba(122,173,90,0.3); margin-top: 4px; }
+  #huts-section h3 { font-size: 11px; color: #7aad5a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
   .hut-item { font-size: 11px; color: #c8d8b0; padding: 2px 0; }
 
-  /* Info panel bottom sheet */
-  #info-sheet { position: absolute; bottom: 0; left: 0; right: 0; background: #1c3a28; border-top: 2px solid #7aad5a; padding: 12px 16px; transform: translateY(100%); transition: transform 0.25s ease; z-index: 50; max-height: 45vh; overflow-y: auto; }
-  #info-sheet.open { transform: translateY(0); }
-  #info-title { font-size: 15px; font-weight: bold; color: #e8dfc0; margin-bottom: 4px; }
-  #info-sub { font-size: 11px; color: #7aad5a; margin-bottom: 8px; }
-  #info-nav-btn { background: #7aad5a; color: #1c3a28; border: none; padding: 8px 18px; border-radius: 20px; font-size: 13px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
-  #info-close { float: right; background: none; border: none; color: #7aad5a; font-size: 22px; cursor: pointer; margin-top: -4px; }
-  #info-lakes { font-size: 11px; color: #b0c890; }
-  #info-lakes div { padding: 2px 0; border-bottom: 1px solid rgba(122,173,90,0.1); }
-
-  /* Overlay */
-  #overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.4); z-index: 90; }
+  #overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.4); z-index: 999; }
   #overlay.show { display: block; }
 
-  /* Legend */
-  #legend { position: absolute; bottom: 16px; right: 10px; background: rgba(28,58,40,0.92); border: 1px solid #7aad5a; border-radius: 8px; padding: 8px 10px; font-size: 10px; z-index: 10; }
-  #legend div { display: flex; align-items: center; gap: 6px; padding: 2px 0; color: #c8d8b0; }
-  .leg-dot { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid white; }
-  .leg-house { font-size: 14px; line-height: 1; }
+  #layer-btn { position: absolute; top: 10px; right: 10px; z-index: 900; background: rgba(28,58,40,0.92); border: 1px solid #7aad5a; color: #e8dfc0; padding: 7px 11px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+
+  /* Leaflet popup override */
+  .leaflet-popup-content-wrapper { background: #1c3a28; border: 1px solid #7aad5a; border-radius: 8px; color: #e8dfc0; box-shadow: 0 2px 12px rgba(0,0,0,0.4); }
+  .leaflet-popup-tip { background: #1c3a28; }
+  .leaflet-popup-content { margin: 10px 14px; }
+  .popup-title { font-size: 14px; font-weight: bold; color: #e8dfc0; margin-bottom: 3px; }
+  .popup-sub { font-size: 11px; color: #9aba7a; margin-bottom: 8px; }
+  .popup-nav { background: #7aad5a; color: #1c3a28; border: none; padding: 6px 14px; border-radius: 14px; font-size: 12px; font-weight: bold; cursor: pointer; width: 100%; }
+  .leaflet-popup-close-button { color: #7aad5a !important; font-size: 18px !important; }
 </style>
 </head>
 <body>
@@ -86,11 +73,8 @@
 
 <div id="app">
   <div id="map"></div>
-
-  <!-- Overlay -->
   <div id="overlay" onclick="closePanel()"></div>
 
-  <!-- Slide panel -->
   <div id="panel">
     <div id="panel-header">
       <h2>Dagsturer</h2>
@@ -103,52 +87,61 @@
     </div>
   </div>
 
-  <!-- Info bottom sheet -->
-  <div id="info-sheet">
-    <button id="info-close" onclick="closeInfo()">✕</button>
-    <div id="info-title"></div>
-    <div id="info-sub"></div>
-    <button id="info-nav-btn" onclick="navigateToParking()">🗺️ Naviger til parkering</button>
-    <div id="info-lakes"></div>
-  </div>
-
-  <!-- Legend -->
-  <div id="legend">
-    <div><span class="leg-dot" style="background:#e74c3c"></span> Vann</div>
-    <div><span class="leg-house">🏠</span> Serveringshytte</div>
-  </div>
+  <button id="layer-btn" onclick="toggleLayer()">🛰️ Flyfoto</button>
 </div>
 
 <script>
-const GMAPS_KEY = 'AIzaSyBX1wYWXb0ubdQdJDpgBmfz3cTICLXO2C8';
-
-// Data
 const lakeData = [
-  {id:1,name:"Baklidammen",grid:"E10"},{id:2,name:"Bangtjønna",grid:"G7"},
-  {id:3,name:"Bjørktjønna",grid:"I5"},{id:4,name:"Blomstertjønna",grid:"E6"},
-  {id:5,name:"Bosbergdammen",grid:"E2"},{id:6,name:"Bykleivvatnet",grid:"H4"},
-  {id:7,name:"Damvatnet",grid:"C4"},{id:8,name:"Elsettjønna",grid:"E4"},
-  {id:9,name:"Fagertjønna",grid:"E5"},{id:10,name:"Fålåtjønnan",grid:"I8"},
-  {id:11,name:"Haukvatnet",grid:"G9"},{id:12,name:"Heisjøen",grid:"H3"},
-  {id:13,name:"Herbernsdammen",grid:"B6"},{id:14,name:"Hestsjøen",grid:"K7"},
-  {id:15,name:"Holstdammen",grid:"B8"},{id:16,name:"Jelleintjønna",grid:"K8"},
-  {id:17,name:"Klokktjønna, Bynesmarka",grid:"J5"},{id:18,name:"Klokktjønna, Trondheimsmarka",grid:"G7"},
-  {id:19,name:"Kobberdammen",grid:"D7"},{id:20,name:"Kongensåsvatnet",grid:"C5"},
-  {id:21,name:"Kutjønna",grid:"E4"},{id:22,name:"Kvistingen",grid:"F4"},
-  {id:23,name:"Kyvatnet",grid:"F11"},{id:24,name:"Kåttåtjønna",grid:"J8"},
-  {id:25,name:"Lauglovatnet",grid:"K6"},{id:26,name:"Lianvatnet",grid:"F9"},
-  {id:27,name:"Litlkvistingen",grid:"E4"},{id:28,name:"Litl-Leirsjøen",grid:"H6"},
-  {id:29,name:"Litltjønna",grid:"B7"},{id:30,name:"Lomtjønnan",grid:"F3"},
-  {id:31,name:"Lykkjadammen",grid:"AB8"},{id:32,name:"Munkauntjønna",grid:"B9"},
-  {id:33,name:"Nydammen",grid:"C8"},{id:34,name:"Ramnåsvatnet",grid:"D4"},
-  {id:35,name:"Rognstjønna",grid:"J4"},{id:36,name:"Sagdammen",grid:"K3"},
-  {id:37,name:"Skjellbreia",grid:"H6"},{id:38,name:"Stokkedammen",grid:"E11"},
-  {id:39,name:"Stor-Leirsjøen",grid:"H8"},{id:40,name:"Svarttjønna, Bynesmarka",grid:"H3"},
-  {id:41,name:"Svartjønna, Trolla",grid:"B8"},{id:42,name:"Svartvatnet, Flakk",grid:"B4"},
-  {id:43,name:"Svarvatnet, Leinstrand",grid:"I6"},{id:44,name:"Sølvskakkeltjønna",grid:"I8"},
-  {id:45,name:"Theisendammen",grid:"D11"},{id:46,name:"Tiendalsdammen",grid:"B9"},
-  {id:47,name:"Tiknepptjønna",grid:"C8"},{id:48,name:"Trolltjern",grid:"B7"},
-  {id:49,name:"Velikvatnet",grid:"J6"},{id:50,name:"Vintervatnet",grid:"E6"},
+  {id:1,  name:"Baklidammen",                  lat:63.419240, lng:10.320980},
+  {id:2,  name:"Bangtjønna",                   lat:63.398110, lng:10.270140},
+  {id:3,  name:"Bjørktjønna",                  lat:63.383380, lng:10.237240},
+  {id:4,  name:"Blomstertjønna",               lat:63.418780, lng:10.260960},
+  {id:5,  name:"Bosbergdammen",                lat:63.415740, lng:10.166120},
+  {id:6,  name:"Bykleivvatnet",                lat:63.393090, lng:10.201630},
+  {id:7,  name:"Damvatnet",                    lat:63.436942, lng:10.213388},
+  {id:8,  name:"Elsettjønna",                  lat:63.418690, lng:10.209870},
+  {id:9,  name:"Fagertjønna",                  lat:63.418922, lng:10.229167},
+  {id:10, name:"Fålåtjønnan",                  lat:63.375700, lng:10.292010},
+  {id:11, name:"Haukvatnet",                   lat:63.392810, lng:10.318100},
+  {id:12, name:"Heisjøen",                     lat:63.387680, lng:10.180080},
+  {id:13, name:"Herbernsdammen",               lat:63.440200, lng:10.255180},
+  {id:14, name:"Hestsjøen",                    lat:63.357070, lng:10.276500},
+  {id:15, name:"Holstdammen",                  lat:63.442155, lng:10.286335},
+  {id:16, name:"Jelleintjønna",                lat:63.363140, lng:10.282510},
+  {id:17, name:"Klokktjønna, Bynesmarka",      lat:63.374510, lng:10.223450},
+  {id:18, name:"Klokktjønna, Trondheimsmarka", lat:63.394290, lng:10.273150},
+  {id:19, name:"Kobberdammen",                 lat:63.424060, lng:10.279960},
+  {id:20, name:"Kongensåsvatnet",              lat:63.436990, lng:10.225360},
+  {id:21, name:"Kutjønna",                     lat:63.413218, lng:10.211946},
+  {id:22, name:"Kvistingen",                   lat:63.409290, lng:10.212907},
+  {id:23, name:"Kyvatnet",                     lat:63.404746, lng:10.341060},
+  {id:24, name:"Kåttåtjønna",                  lat:63.374180, lng:10.286080},
+  {id:25, name:"Lauglovatnet",                 lat:63.361660, lng:10.244140},
+  {id:26, name:"Lianvatnet",                   lat:63.400710, lng:10.316820},
+  {id:27, name:"Litlkvistingen",               lat:63.415050, lng:10.209620},
+  {id:28, name:"Litl-Leirsjøen",               lat:63.385710, lng:10.254500},
+  {id:29, name:"Litltjønna",                   lat:63.444080, lng:10.272492},
+  {id:30, name:"Lomtjønnan",                   lat:63.404190, lng:10.199810},
+  {id:31, name:"Lykkjadammen",                 lat:63.446750, lng:10.300930},
+  {id:32, name:"Munkauntjønna",                lat:63.444490, lng:10.313300},
+  {id:33, name:"Nydammen",                     lat:63.438390, lng:10.291090},
+  {id:34, name:"Ramnåsvatnet",                 lat:63.426960, lng:10.208220},
+  {id:35, name:"Rognstjønna",                  lat:63.370500, lng:10.214520},
+  {id:36, name:"Sagdammen",                    lat:63.365160, lng:10.199180},
+  {id:37, name:"Skjellbreia",                  lat:63.396460, lng:10.241160},
+  {id:38, name:"Stokkedammen",                 lat:63.418710, lng:10.342190},
+  {id:39, name:"Stor-Leirsjøen",               lat:63.384250, lng:10.281690},
+  {id:40, name:"Svarttjønna, Bynesmarka",      lat:63.387962, lng:10.198135},
+  {id:41, name:"Svartjønna, Trolla",           lat:63.441330, lng:10.300485},
+  {id:42, name:"Svartvatnet, Flakk",           lat:63.440761, lng:10.219654},
+  {id:43, name:"Svarvatnet, Leinstrand",       lat:63.377341, lng:10.248474},
+  {id:44, name:"Sølvskakkeltjønna",            lat:63.381320, lng:10.283320},
+  {id:45, name:"Theisendammen",                lat:63.421780, lng:10.345190},
+  {id:46, name:"Tiendalsdammen",               lat:63.441950, lng:10.311060},
+  {id:47, name:"Tiknepptjønna",                lat:63.429210, lng:10.287770},
+  {id:48, name:"Trolltjern",                   lat:63.442823, lng:10.274413},
+  {id:49, name:"Velikvatnet",                  lat:63.372360, lng:10.244560},
+  {id:50, name:"Vintervatnet",                 lat:63.414500, lng:10.251860},
 ];
 
 const tourAssignment = {
@@ -159,68 +152,123 @@ const tourAssignment = {
 };
 
 const tours = [
-  {id:1, name:"Baklia / Ilavassdraget",  parking:"Baklia — Byåsen butikksenter", plat:63.4120, plng:10.3400, km:"~7 km", hours:"2–3 t", color:"#e74c3c"},
-  {id:2, name:"Gråkallen",               parking:"Gråkallen P",                  plat:63.4170, plng:10.3040, km:"~9 km", hours:"3–4 t", color:"#2980b9"},
-  {id:3, name:"Tømmerdalen",             parking:"Tømmerdalen",                  plat:63.4300, plng:10.3100, km:"~9 km", hours:"3–4 t", color:"#27ae60"},
-  {id:4, name:"Trolla",                  parking:"Trolla-parkeringen",            plat:63.4390, plng:10.3200, km:"~8 km", hours:"2–3 t", color:"#8e44ad"},
-  {id:5, name:"Klefstadhaugen / Flakk",  parking:"Klefstadhaugen",               plat:63.4280, plng:10.2580, km:"~10 km",hours:"3–4 t", color:"#d35400"},
-  {id:6, name:"Granåsen nord",           parking:"Granåsen / Leirbrua",           plat:63.4000, plng:10.3270, km:"~7 km", hours:"2–3 t", color:"#16a085"},
-  {id:7, name:"Lian / Haukvatnet",       parking:"Lian (trikk) / Ugla",          plat:63.4010, plng:10.3310, km:"~6 km", hours:"2 t",   color:"#c0392b"},
-  {id:8, name:"Oppland / Bjørnaråsen",   parking:"Oppland",                       plat:63.3960, plng:10.2680, km:"~9 km", hours:"3–4 t", color:"#2c3e50"},
-  {id:9, name:"Gaustad",                 parking:"Gaustad — Perstu",              plat:63.3780, plng:10.2620, km:"~8 km", hours:"2–3 t", color:"#f39c12"},
-  {id:10,name:"Nybron",                  parking:"Nybron / Smistadgrenda",        plat:63.3820, plng:10.3290, km:"~5 km", hours:"2 t",   color:"#7f8c8d"},
-  {id:11,name:"Bosbergdammen",           parking:"Bosbergaunet / Fortuna",        plat:63.4140, plng:10.2510, km:"~2 km", hours:"1 t",   color:"#1abc9c"},
-  {id:12,name:"Granåsen sør",            parking:"Granåsen / Leirbrua",           plat:63.3980, plng:10.3250, km:"~9 km", hours:"3–4 t", color:"#e91e63"},
-  {id:13,name:"Hestsjøen",              parking:"Hestsjøen P",                   plat:63.3730, plng:10.3130, km:"~4 km", hours:"1–2 t", color:"#ff5722"},
-  {id:14,name:"Skarsleite / Ringvål",    parking:"Skarsleite / Ringvål",          plat:63.3740, plng:10.2920, km:"~8 km", hours:"2–3 t", color:"#9c27b0"},
+  {id:1,  name:"Baklia / Ilavassdraget",  parking:"Baklia — Byåsen butikksenter", plat:63.4192, plng:10.3210, km:"~7 km",  hours:"2–3 t", color:"#e74c3c"},
+  {id:2,  name:"Gråkallen",               parking:"Gråkallen P",                  plat:63.4178, plng:10.3052, km:"~9 km",  hours:"3–4 t", color:"#2980b9"},
+  {id:3,  name:"Tømmerdalen",             parking:"Tømmerdalen",                  plat:63.4292, plng:10.2878, km:"~9 km",  hours:"3–4 t", color:"#27ae60"},
+  {id:4,  name:"Trolla",                  parking:"Trolla-parkeringen",            plat:63.4468, plng:10.3009, km:"~8 km",  hours:"2–3 t", color:"#8e44ad"},
+  {id:5,  name:"Klefstadhaugen / Flakk",  parking:"Klefstadhaugen",               plat:63.4370, plng:10.2197, km:"~10 km", hours:"3–4 t", color:"#d35400"},
+  {id:6,  name:"Granåsen nord",           parking:"Granåsen / Leirbrua",           plat:63.3981, plng:10.3250, km:"~7 km",  hours:"2–3 t", color:"#16a085"},
+  {id:7,  name:"Lian / Haukvatnet",       parking:"Lian (trikk) / Ugla",          plat:63.4007, plng:10.3168, km:"~6 km",  hours:"2 t",   color:"#c0392b"},
+  {id:8,  name:"Oppland / Bjørnaråsen",   parking:"Oppland",                       plat:63.3931, plng:10.2016, km:"~9 km",  hours:"3–4 t", color:"#2c3e50"},
+  {id:9,  name:"Gaustad",                 parking:"Gaustad — Perstu",              plat:63.3705, plng:10.1992, km:"~8 km",  hours:"2–3 t", color:"#f39c12"},
+  {id:10, name:"Nybron",                  parking:"Nybron / Smistadgrenda",        plat:63.3757, plng:10.2921, km:"~5 km",  hours:"2 t",   color:"#7f8c8d"},
+  {id:11, name:"Bosbergdammen",           parking:"Bosbergaunet / Fortuna",        plat:63.4157, plng:10.1661, km:"~2 km",  hours:"1 t",   color:"#1abc9c"},
+  {id:12, name:"Granåsen sør",            parking:"Granåsen / Leirbrua",           plat:63.3981, plng:10.3250, km:"~9 km",  hours:"3–4 t", color:"#e91e63"},
+  {id:13, name:"Hestsjøen",               parking:"Hestsjøen P",                  plat:63.3571, plng:10.2765, km:"~4 km",  hours:"1–2 t", color:"#ff5722"},
+  {id:14, name:"Skarsleite / Ringvål",    parking:"Skarsleite / Ringvål",          plat:63.3617, plng:10.2441, km:"~8 km",  hours:"2–3 t", color:"#9c27b0"},
 ];
 
 const huts = [
-  {name:"Skistua",          info:"Åpen ti-sø · buss 26",             lat:63.417, lng:10.304},
-  {name:"Grønlia",          info:"Åpen man-sø · ved Skjellbreia",    lat:63.396, lng:10.294},
-  {name:"Lavollen",         info:"Åpen hver dag · nær Baklidammen",  lat:63.411, lng:10.330},
-  {name:"Damhaugen",        info:"Helgeåpent · ved Holstdammen",     lat:63.436, lng:10.316},
-  {name:"Elgsethytta",      info:"Åpen ti-sø · 3,5 km fra Skistua", lat:63.406, lng:10.268},
-  {name:"Rønningen",        info:"Åpen on-sø · Leinstrandmarka",     lat:63.388, lng:10.308},
-  {name:"Lian restaurant",  info:"Ved Lianvatnet og trikken",        lat:63.401, lng:10.331},
-  {name:"Sparebank 1-hytta",info:"Åpen on,to,lø,sø · Granåsen",    lat:63.394, lng:10.323},
+  {name:"Skistua",        info:"Åpen ti-sø · buss 18 stopper utenfor",  lat:63.417550, lng:10.261280},
+  {name:"Grønlia",        info:"Åpen man-sø · ved Skjellbreia",          lat:63.402430, lng:10.242810},
+  {name:"Lavollen",       info:"Åpen hver dag · nær Baklidammen",        lat:63.423110, lng:10.304500},
+  {name:"Damhaugen",      info:"Helgeåpent · ved Holstdammen",           lat:63.442470, lng:10.290690},
+  {name:"Elgsethytta",    info:"Åpen ti-sø · Bynesmarka",                lat:63.419290, lng:10.211540},
+  {name:"Rønningen",      info:"Åpen ti-sø · v/ Stor-Leirsjøen",         lat:63.378270, lng:10.262420},
+  {name:"Lian restaurant",info:"Ved Lianvatnet og trikke-endestasjon",   lat:63.402440, lng:10.310550},
 ];
 
-// Grid to lat/lng
-const COL={1:10.247,2:10.256,3:10.266,4:10.276,5:10.285,6:10.295,7:10.304,8:10.314,9:10.323,10:10.333,11:10.342,12:10.352};
-const ROW={A:63.444,B:63.438,C:63.431,D:63.424,E:63.417,F:63.410,G:63.403,H:63.396,I:63.389,J:63.382,K:63.375,L:63.368};
-function gridToLatLng(grid){
-  const m=grid.match(/^([A-L]{1,2})(\d+)$/);
-  if(!m) return {lat:63.41,lng:10.30};
-  const r=m[1],c=parseInt(m[2]);
-  const lat=r.length===2?(ROW[r[0]]+ROW[r[1]])/2:ROW[r];
-  return {lat, lng:COL[c]??(10.247+(c-1)*0.0095)};
+// Assign tours
+lakeData.forEach(l => l.tour = 0);
+for(const [tid, ids] of Object.entries(tourAssignment)){
+  ids.forEach(id => { const l = lakeData.find(x=>x.id===id); if(l) l.tour=parseInt(tid); });
 }
+function tourColor(id){ return tours.find(t=>t.id===id)?.color||'#888888'; }
 
-// Assign tour + coords to lakes
-const lakes = lakeData.map(l=>({...l,...gridToLatLng(l.grid),tour:0}));
-for(const [tid,ids] of Object.entries(tourAssignment)){
-  ids.forEach(id=>{const l=lakes.find(x=>x.id===id);if(l)l.tour=parseInt(tid);});
-}
-// Jitter overlapping
-const gc={},go={};
-lakes.forEach(l=>{gc[l.grid]=(gc[l.grid]||0)+1;});
-lakes.forEach(l=>{
-  if(gc[l.grid]>1){go[l.grid]=go[l.grid]||0;const i=go[l.grid]++;const a=i*2.4;l.lat+=Math.sin(a)*0.0012;l.lng+=Math.cos(a)*0.0016;}
+// ── MAP ───────────────────────────────────────────────────────────────────────
+const map = L.map('map', { zoomControl: true }).setView([63.405, 10.270], 12);
+
+const topoTiles = L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png', {
+  attribution: '© <a href="https://kartverket.no">Kartverket</a>',
+  maxZoom: 18,
+}).addTo(map);
+
+const orthoTiles = L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/nib/default/webmercator/{z}/{y}/{x}.png', {
+  attribution: '© <a href="https://kartverket.no">Kartverket</a>',
+  maxZoom: 20,
 });
 
-// State
-let map, activeTour=null, markers=[], infoWindow=null, currentParking=null;
+let showOrtho = false;
+function toggleLayer(){
+  showOrtho = !showOrtho;
+  if(showOrtho){ map.removeLayer(topoTiles); orthoTiles.addTo(map); }
+  else { map.removeLayer(orthoTiles); topoTiles.addTo(map); }
+  document.getElementById('layer-btn').textContent = showOrtho ? '🗺️ Topokart' : '🛰️ Flyfoto';
+}
 
-// Build sidebar
-const tourList=document.getElementById('tour-list');
-tours.forEach(tour=>{
-  const count=lakes.filter(l=>l.tour===tour.id).length;
-  const div=document.createElement('div');
-  div.className='tour-item';
-  div.dataset.id=tour.id;
-  div.style.borderLeftColor='transparent';
-  div.innerHTML=`
+// ── MARKERS ───────────────────────────────────────────────────────────────────
+let activeTour = null;
+const lakeMarkers = [];
+
+function makeCircleIcon(color, id, dimmed){
+  const opacity = dimmed ? 0.2 : 1;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26">
+    <circle cx="13" cy="13" r="11" fill="${color}" fill-opacity="${opacity}" stroke="white" stroke-width="2"/>
+    <text x="13" y="17" text-anchor="middle" font-size="9" font-weight="bold" font-family="monospace" fill="white" fill-opacity="${opacity}">${id}</text>
+  </svg>`;
+  return L.divIcon({
+    html: svg, className: '', iconSize:[26,26], iconAnchor:[13,13], popupAnchor:[0,-14]
+  });
+}
+
+lakeData.forEach(lake => {
+  const color = tourColor(lake.tour);
+  const marker = L.marker([lake.lat, lake.lng], {
+    icon: makeCircleIcon(color, lake.id, false),
+    title: lake.name
+  });
+  const tour = tours.find(t=>t.id===lake.tour);
+  marker.bindPopup(`
+    <div class="popup-title">${lake.id}. ${lake.name}</div>
+    <div class="popup-sub" style="color:${color}">${tour ? 'Tur '+tour.id+': '+tour.name : ''}</div>
+    <button class="popup-nav" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${lake.lat},${lake.lng}&travelmode=driving','_blank')">🗺️ Naviger til vannet</button>
+  `);
+  marker.addTo(map);
+  lakeMarkers.push({marker, lake});
+});
+
+// Hut markers
+huts.forEach(hut => {
+  const icon = L.divIcon({
+    html: '<div style="font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5))">🏠</div>',
+    className: '', iconSize:[24,24], iconAnchor:[12,20], popupAnchor:[0,-22]
+  });
+  const marker = L.marker([hut.lat, hut.lng], {icon, title: hut.name});
+  marker.bindPopup(`
+    <div class="popup-title">🏠 ${hut.name}</div>
+    <div class="popup-sub">${hut.info}</div>
+    <button class="popup-nav" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${hut.lat},${hut.lng}&travelmode=driving','_blank')">🗺️ Naviger hit</button>
+  `);
+  marker.addTo(map);
+});
+
+function updateMarkers(){
+  lakeMarkers.forEach(({marker, lake}) => {
+    const dimmed = activeTour !== null && lake.tour !== activeTour;
+    const color = tourColor(lake.tour);
+    marker.setIcon(makeCircleIcon(color, lake.id, dimmed));
+  });
+}
+
+// ── SIDEBAR ───────────────────────────────────────────────────────────────────
+const tourList = document.getElementById('tour-list');
+tours.forEach(tour => {
+  const count = lakeData.filter(l=>l.tour===tour.id).length;
+  const div = document.createElement('div');
+  div.className = 'tour-item';
+  div.dataset.id = tour.id;
+  div.style.borderLeftColor = 'transparent';
+  div.innerHTML = `
     <div class="tour-row">
       <div class="tour-dot" style="background:${tour.color}"></div>
       <div style="flex:1">
@@ -230,22 +278,39 @@ tours.forEach(tour=>{
     </div>
     <div class="tour-detail" id="td-${tour.id}">
       <div class="tour-parking">🅿️ ${tour.parking}</div>
-      ${lakes.filter(l=>l.tour===tour.id).sort((a,b)=>a.id-b.id).map(l=>
-        `<div class="tour-lake-item"><span class="lnum" style="color:${tour.color}">${l.id}.</span> ${l.name} <span class="lgrid">(${l.grid})</span></div>`
+      ${lakeData.filter(l=>l.tour===tour.id).sort((a,b)=>a.id-b.id).map(l=>
+        `<div class="tour-lake-item"><span class="lnum" style="color:${tour.color}">${l.id}.</span> ${l.name}</div>`
       ).join('')}
     </div>`;
-  div.addEventListener('click',()=>selectTour(tour.id));
+  div.addEventListener('click', () => selectTour(tour.id));
   tourList.appendChild(div);
 });
 
-// Huts sidebar list
-const hutsList=document.getElementById('huts-list');
-huts.forEach(h=>{
-  const d=document.createElement('div');
-  d.className='hut-item';
-  d.textContent=h.name;
+const hutsList = document.getElementById('huts-list');
+huts.forEach(h => {
+  const d = document.createElement('div');
+  d.className = 'hut-item';
+  d.textContent = h.name;
   hutsList.appendChild(d);
 });
+
+function selectTour(id){
+  activeTour = activeTour===id ? null : id;
+  document.querySelectorAll('.tour-item').forEach(el => {
+    const tid = parseInt(el.dataset.id);
+    const active = tid===activeTour;
+    el.classList.toggle('active', active);
+    el.style.borderLeftColor = active ? tours.find(t=>t.id===tid).color : 'transparent';
+    el.querySelector('.tour-name').classList.toggle('bold', active);
+    el.querySelector('.tour-detail').classList.toggle('open', active);
+  });
+  updateMarkers();
+  if(activeTour){
+    const t = tours.find(x=>x.id===activeTour);
+    map.flyTo([t.plat, t.plng], 13, {duration:1});
+    closePanel();
+  }
+}
 
 function togglePanel(){
   document.getElementById('panel').classList.toggle('open');
@@ -255,152 +320,7 @@ function closePanel(){
   document.getElementById('panel').classList.remove('open');
   document.getElementById('overlay').classList.remove('show');
 }
-function closeInfo(){
-  document.getElementById('info-sheet').classList.remove('open');
-}
 
-function selectTour(id){
-  activeTour = activeTour===id ? null : id;
-  document.querySelectorAll('.tour-item').forEach(el=>{
-    const tid=parseInt(el.dataset.id);
-    const active=tid===activeTour;
-    el.classList.toggle('active',active);
-    const t=tours.find(x=>x.id===tid);
-    el.style.borderLeftColor=active?t.color:'transparent';
-    el.querySelector('.tour-name').classList.toggle('bold',active);
-    el.querySelector('.tour-detail').classList.toggle('open',active);
-  });
-  updateMarkers();
-  if(activeTour){
-    const t=tours.find(x=>x.id===activeTour);
-    showTourInfo(t);
-    closePanel();
-    // Pan to parking
-    map.panTo({lat:t.plat,lng:t.plng});
-    map.setZoom(13);
-  } else {
-    closeInfo();
-    map.panTo({lat:63.408,lng:10.295});
-    map.setZoom(12);
-  }
-}
-
-function showTourInfo(tour){
-  const sheet=document.getElementById('info-sheet');
-  document.getElementById('info-title').textContent=`Tur ${tour.id}: ${tour.name}`;
-  document.getElementById('info-sub').textContent=`${tour.km} · ${tour.hours} · 🅿️ ${tour.parking}`;
-  document.getElementById('info-nav-btn').style.borderColor=tour.color;
-  currentParking={lat:tour.plat,lng:tour.plng,name:tour.parking};
-  const lakesHtml=lakes.filter(l=>l.tour===tour.id).sort((a,b)=>a.id-b.id)
-    .map(l=>`<div><span style="color:${tour.color};font-weight:bold">${l.id}.</span> ${l.name} (${l.grid})</div>`).join('');
-  document.getElementById('info-lakes').innerHTML=lakesHtml;
-  sheet.classList.add('open');
-}
-
-function navigateToParking(){
-  if(!currentParking) return;
-  window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentParking.lat},${currentParking.lng}&travelmode=driving`,'_blank');
-}
-
-function updateMarkers(){
-  markers.forEach(({marker,id})=>{
-    const lake=lakes.find(l=>l.id===id);
-    const dimmed=activeTour!==null&&lake.tour!==activeTour;
-    marker.setOpacity(dimmed?0.15:1);
-  });
-}
-
-function initMap(){
-  map=new google.maps.Map(document.getElementById('map'),{
-    center:{lat:63.408,lng:10.295},
-    zoom:12,
-    mapTypeId:'terrain',
-    mapTypeControl:true,
-    mapTypeControlOptions:{
-      style:google.maps.MapTypeControlStyle.DROPDOWN_MENU,
-      mapTypeIds:['roadmap','terrain','satellite','hybrid']
-    },
-    streetViewControl:false,
-    fullscreenControl:false,
-    zoomControlOptions:{position:google.maps.ControlPosition.RIGHT_CENTER},
-    styles:[
-      {featureType:'poi',elementType:'labels',stylers:[{visibility:'off'}]},
-      {featureType:'transit',stylers:[{visibility:'off'}]},
-    ]
-  });
-
-  if(infoWindow) infoWindow.close();
-  infoWindow=new google.maps.InfoWindow();
-
-  // Lake markers
-  lakes.forEach(lake=>{
-    const tour=tours.find(t=>t.id===lake.tour);
-    const color=tour?tour.color:'#888888';
-    const marker=new google.maps.Marker({
-      position:{lat:lake.lat,lng:lake.lng},
-      map,
-      title:lake.name,
-      icon:{
-        path:google.maps.SymbolPath.CIRCLE,
-        scale:8,
-        fillColor:color,
-        fillOpacity:1,
-        strokeColor:'white',
-        strokeWeight:1.5,
-      },
-      label:{text:String(lake.id),color:'white',fontSize:'8px',fontWeight:'bold'},
-      zIndex:10,
-    });
-    marker.addListener('click',()=>{
-      const t=tours.find(x=>x.id===lake.tour);
-      infoWindow.setContent(`
-        <div style="font-family:sans-serif;padding:4px">
-          <strong style="font-size:14px">${lake.name}</strong><br>
-          <span style="color:#666;font-size:11px">Grid: ${lake.grid}</span><br>
-          ${t?`<span style="color:${t.color};font-size:11px">Tur ${t.id}: ${t.name}</span>`:''}
-        </div>`);
-      infoWindow.open(map,marker);
-    });
-    markers.push({marker,id:lake.id});
-  });
-
-  // Hut markers
-  huts.forEach(hut=>{
-    const marker=new google.maps.Marker({
-      position:{lat:hut.lat,lng:hut.lng},
-      map,
-      title:hut.name,
-      icon:{
-        url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(`
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="28" viewBox="0 0 24 28">
-            <polygon points="12,2 22,11 2,11" fill="#5a2d0c" stroke="white" stroke-width="1.5"/>
-            <rect x="4" y="11" width="16" height="13" fill="#8B4513" stroke="white" stroke-width="1.5"/>
-            <rect x="15" y="6" width="3" height="6" fill="#5a2d0c"/>
-            <rect x="9" y="17" width="5" height="7" fill="#f5d08a"/>
-          </svg>`),
-        scaledSize:new google.maps.Size(24,28),
-        anchor:new google.maps.Point(12,28),
-      },
-      zIndex:20,
-    });
-    marker.addListener('click',()=>{
-      infoWindow.setContent(`
-        <div style="font-family:sans-serif;padding:4px">
-          <strong style="font-size:14px">🏠 ${hut.name}</strong><br>
-          <span style="color:#666;font-size:11px">${hut.info}</span>
-        </div>`);
-      infoWindow.open(map,marker);
-    });
-  });
-}
-
-// Load Google Maps
-const script=document.createElement('script');
-script.src=`https://maps.googleapis.com/maps/api/js?key=${GMAPS_KEY}&callback=initMap&language=no`;
-script.async=true;
-document.head.appendChild(script);
-
-// Register service worker
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
