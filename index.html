@@ -18,6 +18,7 @@
   #header { background: #1c3a28; padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top)); display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #7aad5a; flex-shrink: 0; }
   #header h1 { font-size: 16px; font-weight: 700; }
   #header .sub { font-size: 10px; color: #9aba7a; }
+  #visited-count { font-size: 10px; color: #7aad5a; margin-top: 2px; }
   #menu-btn { margin-left: auto; background: rgba(122,173,90,0.2); border: 1px solid #7aad5a; color: #e8dfc0; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; white-space: nowrap; }
 
   #app { display: flex; flex: 1; overflow: hidden; position: relative; }
@@ -58,7 +59,8 @@
   .popup-title { font-size: 14px; font-weight: bold; color: #e8dfc0; margin-bottom: 3px; }
   .popup-sub { font-size: 11px; color: #9aba7a; margin-bottom: 8px; }
   .popup-nav { background: #7aad5a; color: #1c3a28; border: none; padding: 6px 14px; border-radius: 14px; font-size: 12px; font-weight: bold; cursor: pointer; width: 100%; }
-  .leaflet-popup-close-button { color: #7aad5a !important; font-size: 18px !important; }
+  .popup-visit { background: rgba(122,173,90,0.2); color: #7aad5a; border: 1px solid #7aad5a; padding: 6px 14px; border-radius: 14px; font-size: 12px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 6px; }
+  .popup-visit.visited { background: #7aad5a; color: #1c3a28; }
 </style>
 </head>
 <body>
@@ -67,6 +69,7 @@
   <div>
     <h1>🏔️ Bymarka 50 Vann</h1>
     <div class="sub">14 dagsturer · Trondheim og Leinstrandmarka</div>
+    <div id="visited-count">0/50 besøkt</div>
   </div>
   <button id="menu-btn" onclick="togglePanel()">☰ Turer</button>
 </div>
@@ -206,16 +209,45 @@ function toggleLayer(){
   document.getElementById('layer-btn').textContent = showOrtho ? '🗺️ Topokart' : '🛰️ Flyfoto';
 }
 
+// ── VISITED ───────────────────────────────────────────────────────────────────
+let visited = new Set(JSON.parse(localStorage.getItem('bymarka-visited') || '[]'));
+
+function saveVisited(){
+  localStorage.setItem('bymarka-visited', JSON.stringify([...visited]));
+  updateCounter();
+}
+
+function toggleVisited(id){
+  if(visited.has(id)) visited.delete(id);
+  else visited.add(id);
+  saveVisited();
+  const lm = lakeMarkers.find(x=>x.lake.id===id);
+  if(lm) lm.marker.setIcon(makeCircleIcon(tourColor(lm.lake.tour), lm.lake.id, activeTour !== null && lm.lake.tour !== activeTour));
+  // Refresh popup
+  const lm2 = lakeMarkers.find(x=>x.lake.id===id);
+  if(lm2) lm2.marker.openPopup();
+}
+
+function updateCounter(){
+  document.getElementById('visited-count').textContent = `${visited.size}/50 besøkt`;
+}
+
 // ── MARKERS ───────────────────────────────────────────────────────────────────
 let activeTour = null;
 const lakeMarkers = [];
 
 function makeCircleIcon(color, id, dimmed){
+  const isVisited = visited.has(id);
   const opacity = dimmed ? 0.2 : 1;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26">
-    <circle cx="13" cy="13" r="11" fill="${color}" fill-opacity="${opacity}" stroke="white" stroke-width="2"/>
-    <text x="13" y="17" text-anchor="middle" font-size="9" font-weight="bold" font-family="monospace" fill="white" fill-opacity="${opacity}">${id}</text>
-  </svg>`;
+  const svg = isVisited
+    ? `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26">
+        <circle cx="13" cy="13" r="11" fill="${color}" fill-opacity="${dimmed ? 0.2 : 0.4}" stroke="white" stroke-width="2"/>
+        <text x="13" y="17" text-anchor="middle" font-size="13" font-family="monospace" fill="white" fill-opacity="${opacity}">✓</text>
+      </svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26">
+        <circle cx="13" cy="13" r="11" fill="${color}" fill-opacity="${opacity}" stroke="white" stroke-width="2"/>
+        <text x="13" y="17" text-anchor="middle" font-size="9" font-weight="bold" font-family="monospace" fill="white" fill-opacity="${opacity}">${id}</text>
+      </svg>`;
   return L.divIcon({
     html: svg, className: '', iconSize:[26,26], iconAnchor:[13,13], popupAnchor:[0,-14]
   });
@@ -228,11 +260,17 @@ lakeData.forEach(lake => {
     title: lake.name
   });
   const tour = tours.find(t=>t.id===lake.tour);
-  marker.bindPopup(`
-    <div class="popup-title">${lake.id}. ${lake.name}</div>
-    <div class="popup-sub" style="color:${color}">${tour ? 'Tur '+tour.id+': '+tour.name : ''}</div>
-    <button class="popup-nav" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${lake.lat},${lake.lng}&travelmode=driving','_blank')">🗺️ Naviger til vannet</button>
-  `);
+  marker.bindPopup(() => {
+    const isV = visited.has(lake.id);
+    return `
+      <div class="popup-title">${lake.id}. ${lake.name}</div>
+      <div class="popup-sub" style="color:${color}">${tour ? 'Tur '+tour.id+': '+tour.name : ''}</div>
+      <button class="popup-visit ${isV ? 'visited' : ''}" onclick="toggleVisited(${lake.id})">
+        ${isV ? '✓ Besøkt' : '○ Merk som besøkt'}
+      </button>
+      <button class="popup-nav" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${lake.lat},${lake.lng}&travelmode=driving','_blank')">🗺️ Naviger til vannet</button>
+    `;
+  });
   marker.addTo(map);
   lakeMarkers.push({marker, lake});
 });
@@ -255,8 +293,7 @@ huts.forEach(hut => {
 function updateMarkers(){
   lakeMarkers.forEach(({marker, lake}) => {
     const dimmed = activeTour !== null && lake.tour !== activeTour;
-    const color = tourColor(lake.tour);
-    marker.setIcon(makeCircleIcon(color, lake.id, dimmed));
+    marker.setIcon(makeCircleIcon(tourColor(lake.tour), lake.id, dimmed));
   });
 }
 
@@ -324,6 +361,8 @@ function closePanel(){
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
+
+updateCounter();
 </script>
 </body>
 </html>
