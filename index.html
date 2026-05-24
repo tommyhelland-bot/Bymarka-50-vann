@@ -193,9 +193,9 @@ const topoTiles = L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/topo/de
   maxZoom: 18,
 }).addTo(map);
 
-const orthoTiles = L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/nib/default/webmercator/{z}/{y}/{x}.png', {
-  attribution: '© <a href="https://kartverket.no">Kartverket</a>',
-  maxZoom: 20,
+const orthoTiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution: '© <a href="https://www.esri.com">Esri</a>',
+  maxZoom: 19,
 });
 
 let showOrtho = false;
