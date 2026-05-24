@@ -1,22 +1,11 @@
-const CACHE_NAME = 'bymarka-v3';
-const BASE = '/Bymarka-50-vann';
-const PRECACHE = [
-  BASE + '/',
-  BASE + '/index.html',
-  BASE + '/manifest.json',
-  BASE + '/icon-192.png',
-  BASE + '/icon-512.png',
-];
+const CACHE_NAME = 'bymarka-v4';
+const PRECACHE = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
-// Installer og cache kjernefiler
 self.addEventListener('install', e => {
   self.skipWaiting();
-  e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE))
-  );
+  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(PRECACHE)));
 });
 
-// Rydd opp gamle cacher
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
@@ -25,21 +14,13 @@ self.addEventListener('activate', e => {
   );
 });
 
-// Network first, fall back to cache
 self.addEventListener('fetch', e => {
-  // Hopp over ikke-GET og chrome-extension
   if (e.request.method !== 'GET') return;
-  if (e.request.url.startsWith('chrome-extension')) return;
-
   e.respondWith(
     fetch(e.request)
-      .then(response => {
-        // Cache vellykkede svar fra egne filer
-        if (response.ok && e.request.url.includes(BASE)) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
-        }
-        return response;
+      .then(r => { 
+        if(r.ok){ const c=r.clone(); caches.open(CACHE_NAME).then(ca=>ca.put(e.request,c)); }
+        return r;
       })
       .catch(() => caches.match(e.request))
   );
