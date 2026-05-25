@@ -276,7 +276,42 @@ lakeData.forEach(lake => {
   lakeMarkers.push({marker, lake});
 });
 
-// Hut markers
+// ── PARKING MARKERS ───────────────────────────────────────────────────────────
+// Find unique parkings, but handle shared ones specially
+const sharedParkings = {};
+tours.forEach(t => {
+  const key = `${t.plat},${t.plng}`;
+  if (!sharedParkings[key]) sharedParkings[key] = [];
+  sharedParkings[key].push(t);
+});
+
+Object.values(sharedParkings).forEach(group => {
+  const p = group[0];
+  let iconHtml;
+  if (group.length === 1) {
+    iconHtml = `<div style="background:${p.color};color:white;font-weight:bold;font-size:11px;width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4)">P</div>`;
+  } else {
+    // Split icon for shared parking
+    const colors = group.map(t => t.color);
+    const pct = 100 / colors.length;
+    const gradient = colors.map((c, i) => `${c} ${i*pct}%, ${c} ${(i+1)*pct}%`).join(', ');
+    iconHtml = `<div style="background:linear-gradient(to right, ${gradient});color:white;font-weight:bold;font-size:11px;width:26px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);text-shadow:0 1px 2px rgba(0,0,0,0.6)">P</div>`;
+  }
+  const icon = L.divIcon({
+    html: iconHtml,
+    className: '', iconSize: group.length > 1 ? [26,22] : [22,22],
+    iconAnchor: group.length > 1 ? [13,11] : [11,11],
+    popupAnchor:[0,-13]
+  });
+  const names = group.map(t => t.parking).filter((v,i,a)=>a.indexOf(v)===i).join(' / ');
+  const marker = L.marker([p.plat, p.plng], {icon, title: names, zIndexOffset: -100});
+  marker.bindPopup(`
+    <div class="popup-title">🅿️ ${names}</div>
+    ${group.map(t => `<div style="font-size:10px;color:${t.color};margin-bottom:2px">Tur ${t.id}: ${t.name}</div>`).join('')}
+    <button class="popup-nav" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${p.plat},${p.plng}&travelmode=driving','_blank')">🗺️ Naviger hit</button>
+  `);
+  marker.addTo(map);
+});
 huts.forEach(hut => {
   const icon = L.divIcon({
     html: '<div style="font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5))">🏠</div>',
