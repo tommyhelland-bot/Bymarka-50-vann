@@ -276,7 +276,164 @@ lakeData.forEach(lake => {
   lakeMarkers.push({marker, lake});
 });
 
-// ── PARKING MARKERS ───────────────────────────────────────────────────────────
+// ── TOUR ROUTES WITH LIVE TRAIL DATA ─────────────────────────────────────────
+const tourRoutes = {
+  1:  [1, 19, 47, 45, 38],
+  2:  [4, 50, 9, 8, 27, 21, 22, 30],
+  3:  [48, 29, 13],
+  4:  [31, 15, 33, 41, 32, 46],
+  5:  [42, 7, 20, 34],
+  6:  [2, 18, 39],
+  7:  [26, 11, 23],
+  8:  [12, 40, 6],
+  9:  [17, 35, 36],
+  10: [10, 24],
+  11: [5],
+  12: [37, 28, 3, 44],
+  13: [16, 14],
+  14: [43, 49, 25],
+};
+
+const tourHuts = {
+  1:  [{name:"Lavollen", lat:63.423110, lng:10.304500, after:47}],
+  2:  [{name:"Skistua", lat:63.417550, lng:10.261280, after:null}],
+  4:  [{name:"Damhaugen", lat:63.442470, lng:10.290690, after:31}],
+  6:  [{name:"Rønningen", lat:63.378270, lng:10.262420, after:39}],
+  7:  [{name:"Lian restaurant", lat:63.402440, lng:10.310550, after:26}],
+  12: [{name:"Grønlia", lat:63.402430, lng:10.242810, after:37}],
+};
+
+let routeLayers = [];
+
+const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjkxMmJhMzRjNzNiYjRmZmViNDM3N2ExYmQ5MjhlMTBhIiwiaCI6Im11cm11cjY0In0=';
+
+// Manual trail waypoints between lakes 27→21→22
+const manualTrails = {
+  '27-21': [
+    [63.415093, 10.210202],
+    [63.413542, 10.210497],
+    [63.411857, 10.209628],
+    [63.410699, 10.209214],
+  ],
+};
+
+async function fetchRoute(coords) {
+  try {
+    const res = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', {
+      method: 'POST',
+      headers: { 'Authorization': ORS_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coordinates: coords })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
+  } catch(e) { return null; }
+}
+
+async function showRoute(tourId) {
+  routeLayers.forEach(l => map.removeLayer(l));
+  routeLayers = [];
+  if (!tourId) return;
+
+  const order = tourRoutes[tourId];
+  if (!order) return;
+
+  const tour = tours.find(t => t.id === tourId);
+  const color = tour.color;
+  const huts = tourHuts[tourId] || [];
+
+  // Build segments splitting at manual trail keys
+  const allWaypoints = [{lat: tour.plat, lng: tour.plng}];
+  order.forEach((lakeId, idx) => {
+    const lake = lakeData.find(l => l.id === lakeId);
+    if (lake) allWaypoints.push({lat: lake.lat, lng: lake.lng, id: lakeId});
+    const hut = huts.find(h => h.after === lakeId);
+    if (hut) allWaypoints.push({lat: hut.lat, lng: hut.lng});
+  });
+  allWaypoints.push({lat: tour.plat, lng: tour.plng});
+
+  // Find manual trail segments and draw them directly, route the rest via ORS
+  const manualKeys = Object.keys(manualTrails).filter(k => {
+    const [fromId, toId] = k.split('-').map(Number);
+    return order.includes(fromId) && order.includes(toId);
+  });
+
+  // Draw loading indicator
+  const loadIcon = L.divIcon({
+    html: `<div style="background:${color};color:white;padding:4px 10px;border-radius:10px;font-size:11px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.4)">⏳ Laster rute...</div>`,
+    className:'', iconSize:[130,24], iconAnchor:[65,12]
+  });
+  const loadMarker = L.marker([tour.plat, tour.plng], {icon: loadIcon, interactive:false, zIndexOffset:200}).addTo(map);
+  routeLayers.push(loadMarker);
+
+  if (manualKeys.length === 0) {
+    // No manual segments — route everything via ORS
+    const coords = allWaypoints.map(w => [w.lng, w.lat]);
+    const routeCoords = await fetchRoute(coords);
+    map.removeLayer(loadMarker);
+    routeLayers = routeLayers.filter(l => l !== loadMarker);
+    if (routeCoords) {
+      routeLayers.push(L.polyline(routeCoords, {color, weight:4, opacity:0.85}).addTo(map));
+    } else {
+      routeLayers.push(L.polyline(allWaypoints.map(w=>[w.lat,w.lng]), {color, weight:3, opacity:0.7, dashArray:'8,6'}).addTo(map));
+    }
+  } else {
+    // Split into ORS segments and manual segments
+    let i = 0;
+    let segStart = allWaypoints[0];
+    const draws = [];
+
+    for (let oi = 0; oi < order.length; oi++) {
+      const fromId = order[oi];
+      const toId = order[oi + 1];
+      const key = `${fromId}-${toId}`;
+      if (manualTrails[key] && toId !== undefined) {
+        const fromLake = lakeData.find(l => l.id === fromId);
+        const toLake = lakeData.find(l => l.id === toId);
+        // ORS from segStart to fromLake
+        const orsWps = allWaypoints.slice(0, allWaypoints.findIndex(w=>w.id===fromId)+1);
+        if (orsWps.length >= 2) draws.push({type:'ors', wps: orsWps});
+        // Manual from fromLake through waypoints to toLake
+        const manPts = [{lat:fromLake.lat,lng:fromLake.lng}, ...manualTrails[key].map(([lat,lng])=>({lat,lng})), {lat:toLake.lat,lng:toLake.lng}];
+        draws.push({type:'manual', wps: manPts});
+        // Reset for next ORS segment starting at toLake
+        allWaypoints.splice(0, allWaypoints.findIndex(w=>w.id===toId));
+      }
+    }
+    // Remaining ORS segment
+    if (allWaypoints.length >= 2) draws.push({type:'ors', wps: allWaypoints});
+
+    map.removeLayer(loadMarker);
+    routeLayers = routeLayers.filter(l => l !== loadMarker);
+
+    for (const draw of draws) {
+      if (draw.type === 'manual') {
+        routeLayers.push(L.polyline(draw.wps.map(w=>[w.lat,w.lng]), {color, weight:4, opacity:0.85}).addTo(map));
+      } else if (draw.wps.length >= 2) {
+        const coords = draw.wps.map(w=>[w.lng,w.lat]);
+        const rc = await fetchRoute(coords);
+        if (rc) {
+          routeLayers.push(L.polyline(rc, {color, weight:4, opacity:0.85}).addTo(map));
+        } else {
+          routeLayers.push(L.polyline(draw.wps.map(w=>[w.lat,w.lng]), {color, weight:3, opacity:0.7, dashArray:'8,6'}).addTo(map));
+        }
+      }
+    }
+  }
+
+  // Step numbers
+  order.forEach((lakeId, idx) => {
+    const lake = lakeData.find(l => l.id === lakeId);
+    if (!lake) return;
+    const stepIcon = L.divIcon({
+      html: `<div style="background:white;color:${color};border:2px solid ${color};border-radius:50%;width:20px;height:20px;font-size:11px;font-weight:bold;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,0.3);position:absolute;top:-10px;left:11px;">${idx+1}</div>`,
+      className:'', iconSize:[0,0], iconAnchor:[0,0],
+    });
+    const m = L.marker([lake.lat, lake.lng], {icon:stepIcon, interactive:false, zIndexOffset:50}).addTo(map);
+    routeLayers.push(m);
+  });
+}
+
 // Find unique parkings, but handle shared ones specially
 const sharedParkings = {};
 tours.forEach(t => {
@@ -378,6 +535,7 @@ function selectTour(id){
     el.querySelector('.tour-detail').classList.toggle('open', active);
   });
   updateMarkers();
+  showRoute(activeTour);
   if(activeTour){
     const t = tours.find(x=>x.id===activeTour);
     map.flyTo([t.plat, t.plng], 13, {duration:1});
