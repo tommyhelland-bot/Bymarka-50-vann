@@ -91,6 +91,7 @@
   </div>
 
   <button id="layer-btn" onclick="toggleLayer()">🛰️ Flyfoto</button>
+  <button id="gps-btn" onclick="toggleGPS()" style="position:absolute;top:46px;right:10px;z-index:900;background:rgba(28,58,40,0.92);border:1px solid #7aad5a;color:#e8dfc0;padding:7px 11px;border-radius:6px;font-size:12px;cursor:pointer;">📍 Vis meg</button>
 </div>
 
 <script>
@@ -155,7 +156,7 @@ const tourAssignment = {
 };
 
 const tours = [
-  {id:1,  name:"Baklia / Ilavassdraget",  parking:"Baklia — Byåsen butikksenter", plat:63.416380, plng:10.323414, km:"~7 km",  hours:"2–3 t", color:"#e74c3c"},
+  {id:1,  name:"Baklia / Ilavassdraget",  parking:"Baklia — Byåsen butikksenter", plat:63.416380, plng:10.323414, km:"~10 km",  hours:"3 t", color:"#e74c3c"},
   {id:2,  name:"Gråkallen",               parking:"Gråkallen P",                  plat:63.418025, plng:10.260590, km:"~9 km",  hours:"3–4 t", color:"#2980b9"},
   {id:3,  name:"Tømmerdalen",             parking:"Tømmerdalen",                  plat:63.433466, plng:10.271868, km:"~9 km",  hours:"3–4 t", color:"#27ae60"},
   {id:4,  name:"Trolla",                  parking:"Trolla-parkeringen",            plat:63.448263, plng:10.301603, km:"~8 km",  hours:"2–3 t", color:"#8e44ad"},
@@ -207,6 +208,57 @@ function toggleLayer(){
   if(showOrtho){ map.removeLayer(topoTiles); orthoTiles.addTo(map); }
   else { map.removeLayer(orthoTiles); topoTiles.addTo(map); }
   document.getElementById('layer-btn').textContent = showOrtho ? '🗺️ Topokart' : '🛰️ Flyfoto';
+}
+
+// ── GPS LOCATION ──────────────────────────────────────────────────────────────
+let gpsMarker = null;
+let gpsCircle = null;
+let gpsTracking = false;
+let gpsWatchId = null;
+
+function toggleGPS(){
+  if(gpsTracking){
+    // Stop tracking
+    if(gpsWatchId) navigator.geolocation.clearWatch(gpsWatchId);
+    if(gpsMarker) map.removeLayer(gpsMarker);
+    if(gpsCircle) map.removeLayer(gpsCircle);
+    gpsMarker = null; gpsCircle = null;
+    gpsTracking = false;
+    document.getElementById('gps-btn').textContent = '📍 Vis meg';
+    document.getElementById('gps-btn').style.background = 'rgba(28,58,40,0.92)';
+  } else {
+    // Start tracking
+    if(!navigator.geolocation){ alert('GPS ikke tilgjengelig'); return; }
+    gpsTracking = true;
+    document.getElementById('gps-btn').textContent = '📍 Følger...';
+    document.getElementById('gps-btn').style.background = 'rgba(41,128,185,0.9)';
+    gpsWatchId = navigator.geolocation.watchPosition(pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const acc = pos.coords.accuracy;
+
+      const icon = L.divIcon({
+        html: `<div style="width:16px;height:16px;background:#2980b9;border:3px solid white;border-radius:50%;box-shadow:0 0 0 3px rgba(41,128,185,0.4)"></div>`,
+        className:'', iconSize:[16,16], iconAnchor:[8,8]
+      });
+
+      if(!gpsMarker){
+        gpsMarker = L.marker([lat,lng], {icon, zIndexOffset:500, interactive:false}).addTo(map);
+        gpsCircle = L.circle([lat,lng], {radius:acc, color:'#2980b9', fillColor:'#2980b9', fillOpacity:0.1, weight:1}).addTo(map);
+        map.setView([lat,lng], 15);
+      } else {
+        gpsMarker.setLatLng([lat,lng]);
+        gpsMarker.setIcon(icon);
+        gpsCircle.setLatLng([lat,lng]);
+        gpsCircle.setRadius(acc);
+      }
+    }, err => {
+      alert('Kunne ikke hente posisjon: ' + err.message);
+      gpsTracking = false;
+      document.getElementById('gps-btn').textContent = '📍 Vis meg';
+      document.getElementById('gps-btn').style.background = 'rgba(28,58,40,0.92)';
+    }, {enableHighAccuracy:true, maximumAge:5000});
+  }
 }
 
 // ── VISITED ───────────────────────────────────────────────────────────────────
