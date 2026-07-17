@@ -1,5 +1,5 @@
-const CACHE_NAME = 'bymarka-v4';
-const PRECACHE = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
+const CACHE_NAME = 'bymarka-v5';
+const PRECACHE = ['/', '/index.html', '/hyen.html', '/admin.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', e => {
   self.skipWaiting();
