@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bymarka 50 Vann — Admin</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1f15; color: #e8dfc0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  #header { background: #1c3a28; padding: 12px 20px; display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #7aad5a; flex-shrink: 0; }
+  #header h1 { font-size: 18px; font-weight: 700; }
+  #header .sub { font-size: 11px; color: #9aba7a; }
+  #stats { margin-left: auto; display: flex; gap: 16px; }
+  .stat { text-align: center; }
+  .stat .num { font-size: 20px; font-weight: bold; color: #7aad5a; }
+  .stat .lbl { font-size: 10px; color: #9aba7a; }
+
+  #main { display: flex; flex: 1; overflow: hidden; }
+
+  /* Left panel */
+  #left { width: 320px; background: #1c3a28; border-right: 2px solid #7aad5a; display: flex; flex-direction: column; flex-shrink: 0; }
+  #filters { padding: 12px; border-bottom: 1px solid rgba(122,173,90,0.3); display: flex; gap: 8px; flex-wrap: wrap; }
+  #filters select, #filters button { background: rgba(122,173,90,0.15); border: 1px solid #7aad5a; color: #e8dfc0; padding: 5px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; }
+  #filters button:hover { background: rgba(122,173,90,0.3); }
+  #track-list { flex: 1; overflow-y: auto; }
+  .track-item { padding: 10px 12px; border-bottom: 1px solid rgba(122,173,90,0.1); cursor: pointer; transition: background 0.1s; }
+  .track-item:hover { background: rgba(122,173,90,0.08); }
+  .track-item.selected { background: rgba(122,173,90,0.18); border-left: 3px solid #7aad5a; }
+  .track-item.approved { border-left: 3px solid #2ecc71; }
+  .track-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .track-tour { font-size: 12px; font-weight: bold; color: #e8dfc0; }
+  .track-app { font-size: 9px; padding: 2px 6px; border-radius: 8px; }
+  .app-bymarka { background: rgba(41,128,185,0.3); color: #5dade2; }
+  .app-hyen { background: rgba(231,76,60,0.3); color: #e74c3c; }
+  .track-meta { font-size: 10px; color: #9aba7a; }
+  .track-badge { display: inline-block; font-size: 9px; padding: 1px 6px; border-radius: 6px; margin-top: 3px; }
+  .badge-approved { background: rgba(46,204,113,0.2); color: #2ecc71; border: 1px solid #2ecc71; }
+  .badge-pending { background: rgba(243,156,18,0.2); color: #f39c12; border: 1px solid #f39c12; }
+
+  /* Map */
+  #map { flex: 1; }
+
+  /* Right panel */
+  #right { width: 260px; background: #1c3a28; border-left: 2px solid #7aad5a; display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; padding: 14px; }
+  #right h2 { font-size: 12px; color: #7aad5a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  #detail-empty { color: #9aba7a; font-size: 12px; margin-top: 20px; text-align: center; }
+
+  .detail-row { margin-bottom: 10px; }
+  .detail-label { font-size: 10px; color: #7aad5a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+  .detail-value { font-size: 12px; color: #e8dfc0; }
+
+  .btn { display: block; width: 100%; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; border: none; margin-bottom: 8px; text-align: center; }
+  .btn-approve { background: #2ecc71; color: #0f1f15; }
+  .btn-approve:hover { background: #27ae60; }
+  .btn-unapprove { background: rgba(46,204,113,0.2); color: #2ecc71; border: 1px solid #2ecc71; }
+  .btn-delete { background: rgba(231,76,60,0.2); color: #e74c3c; border: 1px solid #e74c3c; }
+  .btn-delete:hover { background: rgba(231,76,60,0.4); }
+  .btn-export { background: rgba(122,173,90,0.2); color: #7aad5a; border: 1px solid #7aad5a; }
+  .btn-export:hover { background: rgba(122,173,90,0.35); }
+
+  #msg { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1c3a28; border: 1px solid #7aad5a; color: #e8dfc0; padding: 8px 20px; border-radius: 20px; font-size: 12px; display: none; z-index: 9999; }
+
+  /* Leaflet popup */
+  .leaflet-popup-content-wrapper { background: #1c3a28; border: 1px solid #7aad5a; color: #e8dfc0; border-radius: 8px; }
+  .leaflet-popup-tip { background: #1c3a28; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div>
+    <h1>🏔️ Admin — GPS-spor</h1>
+    <div class="sub">Bymarka 50 Vann · Supabase dashboard</div>
+  </div>
+  <div id="stats">
+    <div class="stat"><div class="num" id="stat-total">—</div><div class="lbl">Totalt</div></div>
+    <div class="stat"><div class="num" id="stat-approved">—</div><div class="lbl">Godkjent</div></div>
+    <div class="stat"><div class="num" id="stat-pending">—</div><div class="lbl">Venter</div></div>
+    <div class="stat"><div class="num" id="stat-bymarka">—</div><div class="lbl">Bymarka</div></div>
+    <div class="stat"><div class="num" id="stat-hyen">—</div><div class="lbl">Hyen</div></div>
+  </div>
+  <button onclick="loadTracks()" style="background:rgba(122,173,90,0.2);border:1px solid #7aad5a;color:#e8dfc0;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;margin-left:10px;">🔄 Last inn</button>
+</div>
+
+<div id="main">
+  <!-- Left: track list -->
+  <div id="left">
+    <div id="filters">
+      <select id="filter-app" onchange="renderList()">
+        <option value="all">Alle apper</option>
+        <option value="bymarka">Bymarka</option>
+        <option value="hyen">Hyen</option>
+      </select>
+      <select id="filter-tour" onchange="renderList()">
+        <option value="all">Alle turer</option>
+      </select>
+      <select id="filter-status" onchange="renderList()">
+        <option value="all">Alle status</option>
+        <option value="pending">Venter</option>
+        <option value="approved">Godkjent</option>
+      </select>
+      <button onclick="selectAll()">Velg alle</button>
+    </div>
+    <div id="track-list">
+      <div style="padding:20px;color:#9aba7a;font-size:12px;text-align:center;">Laster spor...</div>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <!-- Right: detail panel -->
+  <div id="right">
+    <h2>Spordetaljer</h2>
+    <div id="detail-empty">Velg et spor fra listen for å se detaljer</div>
+    <div id="detail-content" style="display:none">
+      <div class="detail-row">
+        <div class="detail-label">ID</div>
+        <div class="detail-value" id="d-id" style="font-size:9px;word-break:break-all"></div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">App</div>
+        <div class="detail-value" id="d-app"></div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Tur</div>
+        <div class="detail-value" id="d-tour"></div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Dato</div>
+        <div class="detail-value" id="d-date"></div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">GPS-punkter</div>
+        <div class="detail-value" id="d-points"></div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Distanse (estimert)</div>
+        <div class="detail-value" id="d-dist"></div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Status</div>
+        <div class="detail-value" id="d-status"></div>
+      </div>
+      <hr style="border-color:rgba(122,173,90,0.2);margin:10px 0">
+      <button class="btn btn-approve" id="btn-approve" onclick="approveSelected()">✅ Godkjenn som offisiell rute</button>
+      <button class="btn btn-unapprove" id="btn-unapprove" onclick="unapproveSelected()" style="display:none">↩️ Fjern godkjenning</button>
+      <button class="btn btn-export" onclick="exportGPX()">📥 Eksporter GPX</button>
+      <button class="btn btn-delete" onclick="deleteSelected()">🗑️ Slett spor</button>
+    </div>
+  </div>
+</div>
+
+<div id="msg"></div>
+
+<script>
+const SUPABASE_URL = 'https://ejkmdgwkautxabcunobc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_FrOKwahRQoYdPZpx6dD1Tg_mMyRt5pK';
+
+const TOUR_NAMES = {
+  1: 'Baklia / Ilavassdraget', 2: 'Gråkallen', 3: 'Tømmerdalen',
+  4: 'Trolla', 5: 'Klefstadhaugen / Flakk', 6: 'Granåsen nord',
+  7: 'Kyvannet / Haukvatnet', 8: 'Oppland / Bjørnaråsen', 9: 'Gaustad',
+  10: 'Nybron', 11: 'Bosbergdammen', 12: 'Granåsen sør',
+  13: 'Hestsjøen', 14: 'Skarsleite / Ringvål',
+  // Hyen
+  101: 'Vasslivatnet — Ommedalsstølen', 102: 'Storevatnet — Gjengedalstølen',
+};
+
+let allTracks = [];
+let selectedTrack = null;
+let trackLayers = [];
+
+// ── MAP ───────────────────────────────────────────────────────────────────────
+const map = L.map('map').setView([63.405, 10.270], 11);
+L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png', {
+  attribution: '© Kartverket', maxZoom: 18
+}).addTo(map);
+
+// ── SUPABASE ─────────────────────────────────────────────────────────────────
+async function supabase(method, path, body){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Prefer': method === 'GET' ? 'return=representation' : 'return=minimal'
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if(method === 'GET') return res.json();
+  return res.ok;
+}
+
+async function loadTracks(){
+  showMsg('Laster spor...');
+  allTracks = await supabase('GET', 'gps_tracks?order=created_at.desc&limit=500');
+  if(!Array.isArray(allTracks)) allTracks = [];
+  updateStats();
+  populateTourFilter();
+  renderList();
+  showMsg(`✅ ${allTracks.length} spor lastet`);
+}
+
+function updateStats(){
+  document.getElementById('stat-total').textContent = allTracks.length;
+  document.getElementById('stat-approved').textContent = allTracks.filter(t=>t.approved).length;
+  document.getElementById('stat-pending').textContent = allTracks.filter(t=>!t.approved).length;
+  document.getElementById('stat-bymarka').textContent = allTracks.filter(t=>t.app==='bymarka').length;
+  document.getElementById('stat-hyen').textContent = allTracks.filter(t=>t.app==='hyen').length;
+}
+
+function populateTourFilter(){
+  const sel = document.getElementById('filter-tour');
+  const tourIds = [...new Set(allTracks.map(t=>t.tour_id))].sort((a,b)=>a-b);
+  sel.innerHTML = '<option value="all">Alle turer</option>';
+  tourIds.forEach(id => {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = `Tur ${id}: ${TOUR_NAMES[id]||'Ukjent'}`;
+    sel.appendChild(opt);
+  });
+}
+
+function filteredTracks(){
+  const app = document.getElementById('filter-app').value;
+  const tour = document.getElementById('filter-tour').value;
+  const status = document.getElementById('filter-status').value;
+  return allTracks.filter(t => {
+    if(app !== 'all' && t.app !== app) return false;
+    if(tour !== 'all' && t.tour_id != tour) return false;
+    if(status === 'pending' && t.approved) return false;
+    if(status === 'approved' && !t.approved) return false;
+    return true;
+  });
+}
+
+function renderList(){
+  const list = document.getElementById('track-list');
+  const tracks = filteredTracks();
+  if(!tracks.length){
+    list.innerHTML = '<div style="padding:20px;color:#9aba7a;font-size:12px;text-align:center;">Ingen spor funnet</div>';
+    return;
+  }
+  list.innerHTML = tracks.map(t => `
+    <div class="track-item ${selectedTrack?.id===t.id?'selected':''} ${t.approved?'approved':''}"
+         onclick="selectTrack('${t.id}')">
+      <div class="track-header">
+        <span class="track-tour">Tur ${t.tour_id}: ${TOUR_NAMES[t.tour_id]||'Ukjent'}</span>
+        <span class="track-app app-${t.app}">${t.app}</span>
+      </div>
+      <div class="track-meta">
+        📍 ${t.point_count} punkter · ${new Date(t.date).toLocaleDateString('no-NO')} ${new Date(t.date).toLocaleTimeString('no-NO', {hour:'2-digit',minute:'2-digit'})}
+      </div>
+      <span class="track-badge ${t.approved?'badge-approved':'badge-pending'}">${t.approved?'✅ Godkjent':'⏳ Venter'}</span>
+    </div>`).join('');
+}
+
+function selectTrack(id){
+  selectedTrack = allTracks.find(t=>t.id===id);
+  if(!selectedTrack) return;
+  renderList();
+  showTrackOnMap(selectedTrack);
+  showDetail(selectedTrack);
+}
+
+function showTrackOnMap(track){
+  trackLayers.forEach(l=>map.removeLayer(l));
+  trackLayers = [];
+  if(!track.points || !track.points.length) return;
+
+  const points = track.points;
+  const latlngs = points.map(p=>[p.lat, p.lng]);
+
+  // Line
+  const line = L.polyline(latlngs, {
+    color: track.approved ? '#2ecc71' : '#f39c12',
+    weight: 4, opacity: 0.85
+  }).addTo(map);
+  trackLayers.push(line);
+
+  // Start marker
+  const startIcon = L.divIcon({
+    html: '<div style="background:#2ecc71;color:white;font-size:11px;font-weight:bold;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4)">S</div>',
+    className:'', iconSize:[24,24], iconAnchor:[12,12]
+  });
+  trackLayers.push(L.marker(latlngs[0], {icon:startIcon}).bindPopup('Start').addTo(map));
+
+  // End marker
+  const endIcon = L.divIcon({
+    html: '<div style="background:#e74c3c;color:white;font-size:11px;font-weight:bold;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4)">S</div>',
+    className:'', iconSize:[24,24], iconAnchor:[12,12]
+  });
+  trackLayers.push(L.marker(latlngs[latlngs.length-1], {icon:endIcon}).bindPopup('Slutt').addTo(map));
+
+  map.fitBounds(line.getBounds(), {padding:[30,30]});
+}
+
+function showDetail(track){
+  document.getElementById('detail-empty').style.display = 'none';
+  document.getElementById('detail-content').style.display = 'block';
+  document.getElementById('d-id').textContent = track.id;
+  document.getElementById('d-app').textContent = track.app;
+  document.getElementById('d-tour').textContent = `Tur ${track.tour_id}: ${TOUR_NAMES[track.tour_id]||'Ukjent'}`;
+  document.getElementById('d-date').textContent = new Date(track.date).toLocaleString('no-NO');
+  document.getElementById('d-points').textContent = track.point_count;
+  document.getElementById('d-dist').textContent = estimateDistance(track.points) + ' km';
+  document.getElementById('d-status').textContent = track.approved ? '✅ Godkjent' : '⏳ Venter godkjenning';
+  document.getElementById('btn-approve').style.display = track.approved ? 'none' : 'block';
+  document.getElementById('btn-unapprove').style.display = track.approved ? 'block' : 'none';
+}
+
+function estimateDistance(points){
+  if(!points || points.length < 2) return '0.0';
+  let total = 0;
+  for(let i=1; i<points.length; i++){
+    const dx = (points[i].lng - points[i-1].lng) * 111320 * Math.cos(points[i].lat * Math.PI/180);
+    const dy = (points[i].lat - points[i-1].lat) * 110540;
+    total += Math.sqrt(dx*dx + dy*dy);
+  }
+  return (total/1000).toFixed(1);
+}
+
+async function approveSelected(){
+  if(!selectedTrack) return;
+  const ok = await supabase('PATCH', `gps_tracks?id=eq.${selectedTrack.id}`, {approved: true});
+  if(ok){
+    selectedTrack.approved = true;
+    allTracks.find(t=>t.id===selectedTrack.id).approved = true;
+    updateStats();
+    renderList();
+    showDetail(selectedTrack);
+    showTrackOnMap(selectedTrack);
+    showMsg('✅ Rute godkjent!');
+  }
+}
+
+async function unapproveSelected(){
+  if(!selectedTrack) return;
+  const ok = await supabase('PATCH', `gps_tracks?id=eq.${selectedTrack.id}`, {approved: false});
+  if(ok){
+    selectedTrack.approved = false;
+    allTracks.find(t=>t.id===selectedTrack.id).approved = false;
+    updateStats();
+    renderList();
+    showDetail(selectedTrack);
+    showMsg('↩️ Godkjenning fjernet');
+  }
+}
+
+async function deleteSelected(){
+  if(!selectedTrack) return;
+  if(!confirm('Slett dette sporet permanent?')) return;
+  const ok = await supabase('DELETE', `gps_tracks?id=eq.${selectedTrack.id}`);
+  if(ok){
+    allTracks = allTracks.filter(t=>t.id!==selectedTrack.id);
+    selectedTrack = null;
+    trackLayers.forEach(l=>map.removeLayer(l));
+    trackLayers = [];
+    document.getElementById('detail-empty').style.display = 'block';
+    document.getElementById('detail-content').style.display = 'none';
+    updateStats();
+    renderList();
+    showMsg('🗑️ Spor slettet');
+  }
+}
+
+function exportGPX(){
+  if(!selectedTrack || !selectedTrack.points) return;
+  const pts = selectedTrack.points.map(p =>
+    `    <trkpt lat="${p.lat}" lon="${p.lng}"><time>${new Date(p.t||selectedTrack.date).toISOString()}</time></trkpt>`
+  ).join('\n');
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Bymarka 50 Vann Admin">
+  <trk>
+    <name>Tur ${selectedTrack.tour_id}: ${TOUR_NAMES[selectedTrack.tour_id]||'Ukjent'}</name>
+    <trkseg>
+${pts}
+    </trkseg>
+  </trk>
+</gpx>`;
+  const blob = new Blob([gpx], {type:'application/gpx+xml'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `tur${selectedTrack.tour_id}_${selectedTrack.app}_${selectedTrack.id.slice(0,8)}.gpx`;
+  a.click();
+  showMsg('📥 GPX eksportert!');
+}
+
+function selectAll(){
+  // Show all tracks on map simultaneously
+  trackLayers.forEach(l=>map.removeLayer(l));
+  trackLayers = [];
+  const tracks = filteredTracks();
+  const colors = ['#e74c3c','#2980b9','#27ae60','#8e44ad','#d35400','#16a085','#f39c12','#7f8c8d'];
+  tracks.forEach((t, i) => {
+    if(!t.points || !t.points.length) return;
+    const line = L.polyline(t.points.map(p=>[p.lat,p.lng]), {
+      color: t.approved ? '#2ecc71' : colors[i % colors.length],
+      weight: 3, opacity: 0.7
+    }).bindPopup(`Tur ${t.tour_id} · ${t.app} · ${t.point_count} pts`).addTo(map);
+    trackLayers.push(line);
+  });
+  if(trackLayers.length) map.fitBounds(L.featureGroup(trackLayers).getBounds(), {padding:[20,20]});
+  showMsg(`🗺️ Viser ${tracks.length} spor`);
+}
+
+function showMsg(txt, duration=2500){
+  const el = document.getElementById('msg');
+  el.textContent = txt;
+  el.style.display = 'block';
+  clearTimeout(showMsg._t);
+  showMsg._t = setTimeout(() => el.style.display='none', duration);
+}
+
+// Init
+loadTracks();
+</script>
+</body>
+</html>
