@@ -288,28 +288,43 @@ function showTrackOnMap(track){
   const points = track.points;
   const latlngs = points.map(p=>[p.lat, p.lng]);
 
-  // Line
+  // Hvit outline under for synlighet
+  const outline = L.polyline(latlngs, {
+    color: 'white', weight: 8, opacity: 0.6, zIndex: 500
+  }).addTo(map);
+  trackLayers.push(outline);
+
+  // Selve sporet
   const line = L.polyline(latlngs, {
     color: track.approved ? '#2ecc71' : '#f39c12',
-    weight: 4, opacity: 0.85
+    weight: 5, opacity: 0.95, zIndex: 501
   }).addTo(map);
   trackLayers.push(line);
 
   // Start marker
   const startIcon = L.divIcon({
-    html: '<div style="background:#2ecc71;color:white;font-size:11px;font-weight:bold;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4)">S</div>',
-    className:'', iconSize:[24,24], iconAnchor:[12,12]
+    html: '<div style="background:#2ecc71;color:white;font-size:11px;font-weight:bold;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.5)">S</div>',
+    className:'', iconSize:[26,26], iconAnchor:[13,13]
   });
-  trackLayers.push(L.marker(latlngs[0], {icon:startIcon}).bindPopup('Start').addTo(map));
+  trackLayers.push(L.marker(latlngs[0], {icon:startIcon, zIndexOffset:600}).bindPopup('🟢 Start').addTo(map));
 
-  // End marker
+  // Slutt marker
   const endIcon = L.divIcon({
-    html: '<div style="background:#e74c3c;color:white;font-size:11px;font-weight:bold;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4)">S</div>',
-    className:'', iconSize:[24,24], iconAnchor:[12,12]
+    html: '<div style="background:#e74c3c;color:white;font-size:11px;font-weight:bold;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.5)">E</div>',
+    className:'', iconSize:[26,26], iconAnchor:[13,13]
   });
-  trackLayers.push(L.marker(latlngs[latlngs.length-1], {icon:endIcon}).bindPopup('Slutt').addTo(map));
+  trackLayers.push(L.marker(latlngs[latlngs.length-1], {icon:endIcon, zIndexOffset:600}).bindPopup('🔴 Slutt').addTo(map));
 
-  map.fitBounds(line.getBounds(), {padding:[30,30]});
+  // Statistikk-popup langs ruten
+  const midIdx = Math.floor(latlngs.length/2);
+  const dist = estimateDistance(track.points);
+  const infoIcon = L.divIcon({
+    html: `<div style="background:rgba(28,58,40,0.9);color:#e8dfc0;font-size:10px;padding:3px 8px;border-radius:10px;border:1px solid #7aad5a;white-space:nowrap">${dist} km · ${track.point_count} pts</div>`,
+    className:'', iconSize:[100,20], iconAnchor:[50,10]
+  });
+  trackLayers.push(L.marker(latlngs[midIdx], {icon:infoIcon, interactive:false, zIndexOffset:550}).addTo(map));
+
+  map.fitBounds(line.getBounds(), {padding:[40,40]});
 }
 
 function showDetail(track){
@@ -324,6 +339,39 @@ function showDetail(track){
   document.getElementById('d-status').textContent = track.approved ? '✅ Godkjent' : '⏳ Venter godkjenning';
   document.getElementById('btn-approve').style.display = track.approved ? 'none' : 'block';
   document.getElementById('btn-unapprove').style.display = track.approved ? 'block' : 'none';
+
+  // Vis antall spor for denne turen
+  const tourTracks = allTracks.filter(t => t.tour_id === track.tour_id && t.app === track.app);
+  const approvedCount = tourTracks.filter(t => t.approved).length;
+  const existing = document.getElementById('d-tour-stats');
+  if(existing) existing.remove();
+  const statsDiv = document.createElement('div');
+  statsDiv.id = 'd-tour-stats';
+  statsDiv.className = 'detail-row';
+  statsDiv.innerHTML = `
+    <div class="detail-label">Spor for denne turen</div>
+    <div class="detail-value">
+      📍 ${tourTracks.length} totalt · ✅ ${approvedCount} godkjent
+      <button onclick="showAllForTour(${track.tour_id}, '${track.app}')" style="display:block;margin-top:4px;background:rgba(122,173,90,0.2);border:1px solid #7aad5a;color:#7aad5a;padding:4px 10px;border-radius:8px;font-size:10px;cursor:pointer;width:100%">🗺️ Vis alle på kart</button>
+    </div>`;
+  document.getElementById('detail-content').insertBefore(statsDiv, document.querySelector('hr'));
+}
+
+function showAllForTour(tourId, app){
+  trackLayers.forEach(l=>map.removeLayer(l));
+  trackLayers = [];
+  const tracks = allTracks.filter(t => t.tour_id === tourId && t.app === app);
+  const colors = ['#f39c12','#e74c3c','#2980b9','#8e44ad','#d35400'];
+  tracks.forEach((t, i) => {
+    if(!t.points || !t.points.length) return;
+    const color = t.approved ? '#2ecc71' : colors[i % colors.length];
+    const line = L.polyline(t.points.map(p=>[p.lat,p.lng]), {
+      color, weight: t.approved ? 5 : 3, opacity: t.approved ? 1 : 0.6
+    }).bindPopup(`${t.approved?'✅':'⏳'} ${new Date(t.date).toLocaleDateString('no-NO')} · ${t.point_count} pts`).addTo(map);
+    trackLayers.push(line);
+  });
+  if(trackLayers.length) map.fitBounds(L.featureGroup(trackLayers).getBounds(), {padding:[30,30]});
+  showMsg(`🗺️ Viser ${tracks.length} spor for Tur ${tourId}`);
 }
 
 function estimateDistance(points){
