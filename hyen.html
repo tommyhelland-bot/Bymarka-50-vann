@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1c3a28">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Hyen Vann">
+<title>Hyen — Testtur</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1c3a28; color: #e8dfc0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  #header { background: #1c3a28; padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top)); display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #7aad5a; flex-shrink: 0; }
+  #header h1 { font-size: 15px; font-weight: 700; }
+  #header .sub { font-size: 10px; color: #9aba7a; }
+  #header .count { font-size: 10px; color: #7aad5a; }
+  #menu-btn { margin-left: auto; background: rgba(122,173,90,0.2); border: 1px solid #7aad5a; color: #e8dfc0; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; }
+
+  #app { display: flex; flex: 1; overflow: hidden; position: relative; }
+  #map { flex: 1; }
+
+  #panel { position: absolute; left: 0; top: 0; bottom: 0; width: 285px; background: #1c3a28; border-right: 2px solid #7aad5a; overflow-y: auto; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 1000; }
+  #panel.open { transform: translateX(0); }
+  #panel-header { padding: 14px 12px 8px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(122,173,90,0.3); }
+  #panel-header h2 { font-size: 12px; color: #7aad5a; text-transform: uppercase; letter-spacing: 1.5px; }
+  #close-btn { background: none; border: none; color: #7aad5a; font-size: 22px; cursor: pointer; }
+
+  .tour-item { padding: 9px 13px; cursor: pointer; border-left: 4px solid transparent; border-bottom: 1px solid rgba(122,173,90,0.1); }
+  .tour-item.active { background: rgba(122,173,90,0.15); }
+  .tour-row { display: flex; align-items: center; gap: 8px; }
+  .tour-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .tour-name { font-size: 12px; color: #e8dfc0; }
+  .tour-name.bold { font-weight: bold; }
+  .tour-meta { font-size: 10px; color: #7aad5a; margin-top: 2px; }
+  .tour-detail { display: none; padding: 7px 0 3px 18px; }
+  .tour-detail.open { display: block; }
+  .tour-parking { font-size: 10px; color: #b0c890; margin-bottom: 5px; }
+  .tour-lake-item { font-size: 11px; color: #e8dfc0; padding: 1px 0; }
+
+  /* Log section */
+  #log-section { padding: 12px 13px; border-top: 1px solid rgba(122,173,90,0.3); margin-top: 4px; }
+  #log-section h3 { font-size: 11px; color: #7aad5a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  #log-form input, #log-form textarea { width: 100%; background: rgba(122,173,90,0.1); border: 1px solid rgba(122,173,90,0.3); color: #e8dfc0; padding: 6px 8px; border-radius: 4px; font-size: 11px; margin-bottom: 6px; }
+  #log-form textarea { height: 60px; resize: none; }
+  #log-form button { background: #7aad5a; color: #1c3a28; border: none; padding: 7px 14px; border-radius: 14px; font-size: 12px; font-weight: bold; cursor: pointer; width: 100%; }
+  #log-entries { margin-top: 8px; }
+  .log-entry { background: rgba(122,173,90,0.08); border: 1px solid rgba(122,173,90,0.2); border-radius: 4px; padding: 6px 8px; margin-bottom: 5px; font-size: 10px; color: #b0c890; }
+  .log-entry strong { color: #e8dfc0; }
+
+  #overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.4); z-index: 999; }
+  #overlay.show { display: block; }
+
+  /* Map buttons */
+  .map-btn { position: absolute; z-index: 900; background: rgba(28,58,40,0.92); border: 1px solid #7aad5a; color: #e8dfc0; padding: 7px 11px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+  #layer-btn { top: 10px; right: 10px; }
+  #gps-btn { top: 46px; right: 10px; }
+
+  /* Leaflet popup */
+  .leaflet-popup-content-wrapper { background: #1c3a28; border: 1px solid #7aad5a; border-radius: 8px; color: #e8dfc0; box-shadow: 0 2px 12px rgba(0,0,0,0.4); }
+  .leaflet-popup-tip { background: #1c3a28; }
+  .leaflet-popup-content { margin: 10px 14px; }
+  .popup-title { font-size: 14px; font-weight: bold; color: #e8dfc0; margin-bottom: 3px; }
+  .popup-sub { font-size: 11px; color: #9aba7a; margin-bottom: 6px; }
+  .popup-badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-bottom: 8px; }
+  .popup-matpakke { background: rgba(243,156,18,0.2); color: #f39c12; border: 1px solid #f39c12; }
+  .popup-servering { background: rgba(122,173,90,0.2); color: #7aad5a; border: 1px solid #7aad5a; }
+  .popup-visit { background: rgba(122,173,90,0.2); color: #7aad5a; border: 1px solid #7aad5a; padding: 5px 12px; border-radius: 14px; font-size: 11px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 5px; }
+  .popup-visit.visited { background: #7aad5a; color: #1c3a28; }
+  .popup-nav { background: rgba(41,128,185,0.2); color: #5dade2; border: 1px solid #5dade2; padding: 5px 12px; border-radius: 14px; font-size: 11px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 4px; }
+  .leaflet-popup-close-button { color: #7aad5a !important; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div>
+    <h1>🏔️ Hyen — Testtur</h1>
+    <div class="sub">Gloppen · Nordfjord · Felttest av konsept</div>
+    <div class="count" id="visited-count">0 vann besøkt</div>
+  </div>
+  <button id="menu-btn" onclick="togglePanel()">☰ Turer</button>
+</div>
+
+<div id="app">
+  <div id="map"></div>
+  <div id="overlay" onclick="closePanel()"></div>
+
+  <div id="panel">
+    <div id="panel-header">
+      <h2>Turer i Hyen</h2>
+      <button id="close-btn" onclick="closePanel()">✕</button>
+    </div>
+    <div id="tour-list"></div>
+
+    <div id="log-section">
+      <h3>📝 Feltlogg</h3>
+      <div id="log-form">
+        <input type="text" id="log-title" placeholder="Hva vil du notere? (f.eks. 'ORS feil her')">
+        <textarea id="log-text" placeholder="Beskrivelse, observasjon, forslag..."></textarea>
+        <button onclick="addLog()">Lagre notat</button>
+      </div>
+      <div id="log-entries"></div>
+    </div>
+  </div>
+
+  <button class="map-btn" id="layer-btn" onclick="toggleLayer()">🛰️ Flyfoto</button>
+  <button class="map-btn" id="gps-btn" onclick="toggleGPS()">📍 Vis meg</button>
+</div>
+
+<script>
+const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjkxMmJhMzRjNzNiYjRmZmViNDM3N2ExYmQ5MjhlMTBhIiwiaCI6Im11cm11cjY0In0=';
+
+// ── DATA ──────────────────────────────────────────────────────────────────────
+// Vann rundt Hyen — koordinater fra norgeskart.no (WGS84)
+const lakeData = [
+  // Tur 1: Vasslivatnet → Ommedalsstølen
+  { id:1, name:"Vasslivatnet",   lat:61.68267, lng:6.00257, tour:1, note:"Fint fjellvann med god utsikt." },
+  { id:2, name:"Ommedalsstølen", lat:61.68779, lng:5.95721, tour:1, note:"Aktiv støl med husdyrhold. Ta med matpakke!", type:"stol" },
+
+  // Tur 2: Storevatnet og Veslevatnet → Gjengedalstølen
+  { id:3, name:"Storevatnet",    lat:61.67830, lng:6.08387, tour:2, note:"Stort vann i dalbunnen." },
+  { id:4, name:"Veslevatnet",    lat:61.66126, lng:6.05551, tour:2, note:"Mindre vann, rolig og fint." },
+  { id:5, name:"Gjengedalstølen",lat:61.67660, lng:6.04956, tour:2, note:"Aktiv støl med husdyrhold. Ta med matpakke!", type:"stol" },
+];
+
+const tours = [
+  {
+    id: 1,
+    name: "Vasslivatnet — Ommedalsstølen",
+    parking: "Rv. 615 ved Røyrvik (estimert)",
+    plat: 61.688534, plng: 5.954606,
+    km: "~6 km", hours: "2–3 t",
+    color: "#e74c3c",
+    matpakke: true,
+    servering: null,
+    route: [1, 2],
+    note: "Parkering langs rv. 615. Stølen er aktiv med husdyrhold — ta med matpakke!",
+  },
+  {
+    id: 2,
+    name: "Storevatnet og Veslevatnet — Gjengedalstølen",
+    parking: "Dalelia",
+    plat: 61.660292, plng: 5.993557,
+    km: "~7 km", hours: "2–3 t",
+    color: "#2980b9",
+    matpakke: true,
+    servering: null,
+    route: [3, 4, 5],
+    note: "Parkering ved enden av veien i Dalelia. Stølen er aktiv med husdyrhold — ta med matpakke!",
+  },
+];
+
+// Visited
+let visited = new Set(JSON.parse(localStorage.getItem('hyen-visited') || '[]'));
+function saveVisited(){ localStorage.setItem('hyen-visited', JSON.stringify([...visited])); updateCounter(); }
+function updateCounter(){ document.getElementById('visited-count').textContent = `${visited.size}/${lakeData.length} vann besøkt`; }
+
+// Logs
+let logs = JSON.parse(localStorage.getItem('hyen-logs') || '[]');
+function addLog(){
+  const title = document.getElementById('log-title').value.trim();
+  const text = document.getElementById('log-text').value.trim();
+  if (!title && !text) return;
+  const entry = { title, text, time: new Date().toLocaleString('no-NO'), lat: gpsLat, lng: gpsLng };
+  logs.unshift(entry);
+  localStorage.setItem('hyen-logs', JSON.stringify(logs));
+  document.getElementById('log-title').value = '';
+  document.getElementById('log-text').value = '';
+  renderLogs();
+}
+function renderLogs(){
+  const el = document.getElementById('log-entries');
+  el.innerHTML = logs.map(l => `
+    <div class="log-entry">
+      <strong>${l.title || 'Notat'}</strong> · ${l.time}<br>
+      ${l.text}
+      ${l.lat ? `<br><span style="color:#5dade2">📍 ${l.lat.toFixed(5)}, ${l.lng.toFixed(5)}</span>` : ''}
+    </div>`).join('');
+}
+
+// ── MAP ───────────────────────────────────────────────────────────────────────
+const map = L.map('map').setView([61.675, 6.010], 12);
+
+const topoTiles = L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png', {
+  attribution: '© <a href="https://kartverket.no">Kartverket</a>', maxZoom: 18,
+}).addTo(map);
+
+const orthoTiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution: '© Esri', maxZoom: 19,
+});
+
+let showOrtho = false;
+function toggleLayer(){
+  showOrtho = !showOrtho;
+  if(showOrtho){ map.removeLayer(topoTiles); orthoTiles.addTo(map); }
+  else { map.removeLayer(orthoTiles); topoTiles.addTo(map); }
+  document.getElementById('layer-btn').textContent = showOrtho ? '🗺️ Topokart' : '🛰️ Flyfoto';
+}
+
+// GPS
+let gpsMarker = null, gpsCircle = null, gpsTracking = false, gpsWatchId = null;
+let gpsLat = null, gpsLng = null;
+
+function toggleGPS(){
+  if(gpsTracking){
+    if(gpsWatchId) navigator.geolocation.clearWatch(gpsWatchId);
+    if(gpsMarker) map.removeLayer(gpsMarker);
+    if(gpsCircle) map.removeLayer(gpsCircle);
+    gpsMarker = null; gpsCircle = null; gpsTracking = false;
+    document.getElementById('gps-btn').textContent = '📍 Vis meg';
+    document.getElementById('gps-btn').style.background = 'rgba(28,58,40,0.92)';
+  } else {
+    if(!navigator.geolocation){ alert('GPS ikke tilgjengelig'); return; }
+    gpsTracking = true;
+    document.getElementById('gps-btn').textContent = '📍 Følger...';
+    document.getElementById('gps-btn').style.background = 'rgba(41,128,185,0.9)';
+    gpsWatchId = navigator.geolocation.watchPosition(pos => {
+      gpsLat = pos.coords.latitude;
+      gpsLng = pos.coords.longitude;
+      const acc = pos.coords.accuracy;
+      const icon = L.divIcon({
+        html: `<div style="width:16px;height:16px;background:#2980b9;border:3px solid white;border-radius:50%;box-shadow:0 0 0 3px rgba(41,128,185,0.4)"></div>`,
+        className:'', iconSize:[16,16], iconAnchor:[8,8]
+      });
+      if(!gpsMarker){
+        gpsMarker = L.marker([gpsLat,gpsLng], {icon, interactive:false, zIndexOffset:500}).addTo(map);
+        gpsCircle = L.circle([gpsLat,gpsLng], {radius:acc, color:'#2980b9', fillColor:'#2980b9', fillOpacity:0.1, weight:1}).addTo(map);
+        map.setView([gpsLat,gpsLng], 14);
+      } else {
+        gpsMarker.setLatLng([gpsLat,gpsLng]);
+        gpsCircle.setLatLng([gpsLat,gpsLng]);
+        gpsCircle.setRadius(acc);
+      }
+    }, err => {
+      alert('Kunne ikke hente posisjon'); gpsTracking = false;
+      document.getElementById('gps-btn').textContent = '📍 Vis meg';
+    }, {enableHighAccuracy:true, maximumAge:5000});
+  }
+}
+
+// ── MARKERS ───────────────────────────────────────────────────────────────────
+let activeTour = null;
+const lakeMarkers = [];
+let routeLayers = [];
+
+function tourColor(id){ return tours.find(t=>t.id===id)?.color||'#888'; }
+
+function makeIcon(lake, dimmed){
+  const color = tourColor(lake.tour);
+  const isV = visited.has(lake.id);
+  const op = dimmed ? 0.15 : 1;
+  const isStol = lake.type === 'stol';
+  const svg = isStol
+    ? `<div style="font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5))">🐄</div>`
+    : (isV
+    ? `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26"><circle cx="13" cy="13" r="11" fill="${color}" fill-opacity="${dimmed?0.1:0.4}" stroke="white" stroke-width="2"/><text x="13" y="18" text-anchor="middle" font-size="14" fill="white" fill-opacity="${op}">✓</text></svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26"><circle cx="13" cy="13" r="11" fill="${color}" fill-opacity="${op}" stroke="white" stroke-width="2"/><text x="13" y="17" text-anchor="middle" font-size="9" font-weight="bold" font-family="monospace" fill="white" fill-opacity="${op}">${lake.id}</text></svg>`);
+  return L.divIcon({ html:svg, className:'', iconSize: isStol ? [24,24] : [26,26], iconAnchor: isStol ? [12,20] : [13,13], popupAnchor:[0,-14] });
+}
+
+lakeData.forEach(lake => {
+  const tour = tours.find(t=>t.id===lake.tour);
+  const color = tourColor(lake.tour);
+  const marker = L.marker([lake.lat, lake.lng], { icon: makeIcon(lake, false), title: lake.name });
+
+  const matpakkeTag = tour?.matpakke
+    ? `<span class="popup-badge popup-matpakke">🎒 Ta med matpakke</span>`
+    : `<span class="popup-badge popup-servering">🏠 Servering tilgjengelig</span>`;
+
+  marker.bindPopup(() => {
+    const isV = visited.has(lake.id);
+    return `
+      <div class="popup-title">${lake.id}. ${lake.name}</div>
+      <div class="popup-sub">${tour ? `Tur ${tour.id}: ${tour.name}` : ''}</div>
+      ${matpakkeTag}
+      <div style="font-size:10px;color:#9aba7a;margin-bottom:8px">${lake.note||''}</div>
+      <button class="popup-visit ${isV?'visited':''}" onclick="toggleVisited(${lake.id})">${isV?'✓ Besøkt':'○ Merk som besøkt'}</button>
+      <button class="popup-nav" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${lake.lat},${lake.lng}&travelmode=driving','_blank')">🗺️ Naviger hit</button>
+    `;
+  });
+  marker.addTo(map);
+  lakeMarkers.push({marker, lake});
+});
+
+function toggleVisited(id){
+  if(visited.has(id)) visited.delete(id); else visited.add(id);
+  saveVisited();
+  const lm = lakeMarkers.find(x=>x.lake.id===id);
+  if(lm){ lm.marker.setIcon(makeIcon(lm.lake, activeTour!==null&&lm.lake.tour!==activeTour)); lm.marker.openPopup(); }
+}
+
+// Parking markers
+tours.forEach(tour => {
+  const icon = L.divIcon({
+    html: `<div style="background:${tour.color};color:white;font-weight:bold;font-size:11px;width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4)">P</div>`,
+    className:'', iconSize:[22,22], iconAnchor:[11,11], popupAnchor:[0,-13]
+  });
+  L.marker([tour.plat, tour.plng], {icon, title:tour.parking, zIndexOffset:-100})
+    .bindPopup(`<div class="popup-title">🅿️ ${tour.parking}</div><div class="popup-sub">${tour.note||''}</div><button class="popup-nav" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${tour.plat},${tour.plng}&travelmode=driving','_blank')">🗺️ Naviger hit</button>`)
+    .addTo(map);
+});
+
+// ── ROUTING ───────────────────────────────────────────────────────────────────
+async function fetchRoute(coords){
+  try {
+    const res = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', {
+      method:'POST',
+      headers:{'Authorization':ORS_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({coordinates: coords})
+    });
+    if(!res.ok) return null;
+    const data = await res.json();
+    return data.features[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+  } catch(e){ return null; }
+}
+
+async function showRoute(tourId){
+  routeLayers.forEach(l=>map.removeLayer(l));
+  routeLayers = [];
+  if(!tourId) return;
+
+  const tour = tours.find(t=>t.id===tourId);
+  const color = tour.color;
+  const order = tour.route;
+  const waypoints = [{lat:tour.plat, lng:tour.plng}];
+  order.forEach(id => { const l=lakeData.find(x=>x.id===id); if(l) waypoints.push({lat:l.lat,lng:l.lng}); });
+  waypoints.push({lat:tour.plat, lng:tour.plng});
+
+  const coords = waypoints.map(w=>[w.lng,w.lat]);
+  const rc = await fetchRoute(coords);
+
+  if(rc){
+    routeLayers.push(L.polyline(rc,{color,weight:4,opacity:0.85}).addTo(map));
+  } else {
+    routeLayers.push(L.polyline(waypoints.map(w=>[w.lat,w.lng]),{color,weight:3,opacity:0.7,dashArray:'8,6'}).addTo(map));
+  }
+
+  order.forEach((id,idx)=>{
+    const l=lakeData.find(x=>x.id===id);
+    if(!l) return;
+    routeLayers.push(L.marker([l.lat,l.lng],{
+      icon:L.divIcon({html:`<div style="background:white;color:${color};border:2px solid ${color};border-radius:50%;width:20px;height:20px;font-size:11px;font-weight:bold;display:flex;align-items:center;justify-content:center;position:absolute;top:-10px;left:11px;">${idx+1}</div>`,className:'',iconSize:[0,0],iconAnchor:[0,0]}),
+      interactive:false, zIndexOffset:50
+    }).addTo(map));
+  });
+}
+
+// ── SIDEBAR ───────────────────────────────────────────────────────────────────
+const tourList = document.getElementById('tour-list');
+tours.forEach(tour => {
+  const lakesOnTour = lakeData.filter(l=>l.tour===tour.id);
+  const div = document.createElement('div');
+  div.className='tour-item';
+  div.dataset.id=tour.id;
+  div.style.borderLeftColor='transparent';
+  div.innerHTML = `
+    <div class="tour-row">
+      <div class="tour-dot" style="background:${tour.color}"></div>
+      <div style="flex:1">
+        <div class="tour-name">Tur ${tour.id}: ${tour.name}</div>
+        <div class="tour-meta">${tour.km} · ${tour.hours} · ${lakesOnTour.length} vann · ${tour.matpakke?'🎒 Matpakke':'🏠 Servering'}</div>
+      </div>
+    </div>
+    <div class="tour-detail" id="td-${tour.id}">
+      <div class="tour-parking">🅿️ ${tour.parking}</div>
+      <div style="font-size:10px;color:#9aba7a;margin-bottom:5px">${tour.note}</div>
+      ${lakesOnTour.map(l=>`<div class="tour-lake-item">${l.id}. ${l.name}</div>`).join('')}
+    </div>`;
+  div.addEventListener('click', ()=>selectTour(tour.id));
+  tourList.appendChild(div);
+});
+
+function selectTour(id){
+  activeTour = activeTour===id ? null : id;
+  document.querySelectorAll('.tour-item').forEach(el=>{
+    const tid=parseInt(el.dataset.id);
+    const active=tid===activeTour;
+    el.classList.toggle('active',active);
+    el.style.borderLeftColor=active?tours.find(t=>t.id===tid).color:'transparent';
+    el.querySelector('.tour-name').classList.toggle('bold',active);
+    el.querySelector('.tour-detail').classList.toggle('open',active);
+  });
+  lakeMarkers.forEach(({marker,lake})=>marker.setIcon(makeIcon(lake, activeTour!==null&&lake.tour!==activeTour)));
+  showRoute(activeTour);
+  if(activeTour){
+    const t=tours.find(x=>x.id===activeTour);
+    map.flyTo([t.plat,t.plng],13,{duration:0.8});
+    closePanel();
+  }
+}
+
+function togglePanel(){ document.getElementById('panel').classList.toggle('open'); document.getElementById('overlay').classList.toggle('show'); }
+function closePanel(){ document.getElementById('panel').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); }
+
+updateCounter();
+renderLogs();
+</script>
+</body>
+</html>
