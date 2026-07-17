@@ -108,6 +108,56 @@
 
   <button class="map-btn" id="layer-btn" onclick="toggleLayer()">🛰️ Flyfoto</button>
   <button class="map-btn" id="gps-btn" onclick="toggleGPS()">📍 Vis meg</button>
+  <button id="track-btn" onclick="startTrackingFlow()" style="position:absolute;top:82px;right:10px;z-index:900;background:rgba(231,76,60,0.15);border:1px solid #e74c3c;color:#e74c3c;padding:7px 11px;border-radius:6px;font-size:12px;cursor:pointer;">🔴 Spor tur</button>
+</div>
+
+<!-- GDPR samtykke-modal -->
+<div id="gdpr-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:2000;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#1c3a28;border:2px solid #7aad5a;border-radius:12px;padding:20px;max-width:320px;width:100%;">
+    <div style="font-size:15px;font-weight:bold;color:#e8dfc0;margin-bottom:10px;">🔴 Start tursporing</div>
+    <div style="font-size:12px;color:#9aba7a;line-height:1.6;margin-bottom:14px;">
+      For å forbedre turrutene ønsker vi å lagre GPS-sporet ditt anonymt.<br><br>
+      <strong style="color:#e8dfc0;">Hva vi samler inn:</strong><br>
+      · GPS-koordinater langs turen<br>
+      · Hvilken tur du går<br>
+      · Dato og tidspunkt<br><br>
+      <strong style="color:#e8dfc0;">Hva vi ikke samler inn:</strong><br>
+      · Navn, e-post eller telefonnummer<br><br>
+      Se vår <span onclick="showPrivacy()" style="color:#7aad5a;text-decoration:underline;cursor:pointer;">personvernerklæring</span>.
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="acceptTracking()" style="flex:1;background:#7aad5a;color:#1c3a28;border:none;padding:10px;border-radius:8px;font-size:13px;font-weight:bold;cursor:pointer;">✅ Jeg godtar</button>
+      <button onclick="closeGdpr()" style="flex:1;background:rgba(122,173,90,0.1);color:#9aba7a;border:1px solid #7aad5a;padding:10px;border-radius:8px;font-size:13px;cursor:pointer;">❌ Nei takk</button>
+    </div>
+  </div>
+</div>
+
+<!-- Personvernerklæring -->
+<div id="privacy-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2100;overflow-y:auto;padding:20px;">
+  <div style="background:#1c3a28;border:2px solid #7aad5a;border-radius:12px;padding:20px;max-width:340px;margin:0 auto;">
+    <div style="font-size:15px;font-weight:bold;color:#e8dfc0;margin-bottom:10px;">📋 Personvernerklæring</div>
+    <div style="font-size:11px;color:#9aba7a;line-height:1.7;">
+      <strong style="color:#e8dfc0;">Behandlingsansvarlig</strong><br>
+      Ølevent Trøndelag AS · Tommy Holen Helland<br><br>
+      <strong style="color:#e8dfc0;">Hva vi samler inn</strong><br>
+      Ved frivillig samtykke samler vi inn anonyme GPS-koordinater under tursporing.<br><br>
+      <strong style="color:#e8dfc0;">Formål</strong><br>
+      GPS-data brukes til å forbedre turrutene i appen.<br><br>
+      <strong style="color:#e8dfc0;">Rettslig grunnlag</strong><br>
+      Ditt uttrykkelige samtykke (GDPR art. 6(1)(a)).<br><br>
+      <strong style="color:#e8dfc0;">Lagring</strong><br>
+      Data lagres i inntil 12 måneder.<br><br>
+      <strong style="color:#e8dfc0;">Kontakt</strong><br>
+      bymarka50vann@gmail.com
+    </div>
+    <button onclick="closePrivacy()" style="width:100%;background:#7aad5a;color:#1c3a28;border:none;padding:10px;border-radius:8px;font-size:13px;font-weight:bold;cursor:pointer;margin-top:16px;">Lukk</button>
+  </div>
+</div>
+
+<!-- Aktiv sporing-banner -->
+<div id="tracking-banner" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(231,76,60,0.92);color:white;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:bold;z-index:900;white-space:nowrap;">
+  🔴 Sporer... <span id="track-points">0</span> punkt
+  <button onclick="stopTracking()" style="background:white;color:#e74c3c;border:none;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:bold;cursor:pointer;margin-left:8px;">Avslutt</button>
 </div>
 
 <script>
@@ -397,6 +447,51 @@ function closePanel(){ document.getElementById('panel').classList.remove('open')
 
 updateCounter();
 renderLogs();
+
+// ── GDPR & TRACKING ───────────────────────────────────────────────────────────
+let trackingActive = false;
+let trackPoints = [];
+let trackWatchId = null;
+let trackTourId = null;
+
+function startTrackingFlow(){
+  if(trackingActive){ stopTracking(); return; }
+  if(!activeTour){ alert('Velg en tur først!'); return; }
+  document.getElementById('gdpr-modal').style.display = 'flex';
+}
+function closeGdpr(){ document.getElementById('gdpr-modal').style.display = 'none'; }
+function showPrivacy(){ document.getElementById('privacy-modal').style.display = 'block'; }
+function closePrivacy(){ document.getElementById('privacy-modal').style.display = 'none'; }
+
+function acceptTracking(){
+  closeGdpr();
+  trackTourId = activeTour;
+  trackPoints = [];
+  trackingActive = true;
+  document.getElementById('track-btn').textContent = '⏹️ Stopp';
+  document.getElementById('track-btn').style.background = 'rgba(231,76,60,0.5)';
+  document.getElementById('tracking-banner').style.display = 'block';
+  if(!navigator.geolocation){ alert('GPS ikke tilgjengelig'); return; }
+  trackWatchId = navigator.geolocation.watchPosition(pos => {
+    trackPoints.push({ lat: pos.coords.latitude, lng: pos.coords.longitude, t: Date.now() });
+    document.getElementById('track-points').textContent = trackPoints.length;
+  }, err => console.log('Track error:', err), { enableHighAccuracy: true, maximumAge: 3000 });
+}
+
+function stopTracking(){
+  if(trackWatchId) navigator.geolocation.clearWatch(trackWatchId);
+  trackingActive = false;
+  document.getElementById('track-btn').textContent = '🔴 Spor tur';
+  document.getElementById('track-btn').style.background = 'rgba(231,76,60,0.15)';
+  document.getElementById('tracking-banner').style.display = 'none';
+  if(trackPoints.length < 5){ alert('For få GPS-punkter. Prøv igjen!'); return; }
+  const track = { tourId: trackTourId, date: new Date().toISOString(), points: trackPoints };
+  const existing = JSON.parse(localStorage.getItem('hyen-tracks') || '[]');
+  existing.push(track);
+  localStorage.setItem('hyen-tracks', JSON.stringify(existing));
+  alert(`✅ Tur lagret med ${trackPoints.length} GPS-punkter! 🏔️`);
+  trackPoints = [];
+}
 </script>
 </body>
 </html>
