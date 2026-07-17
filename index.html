@@ -101,7 +101,9 @@
         <div>🏠 <a href="https://www.visittrondheim.no" style="color:#7aad5a;">Visit Trondheim</a> — hytteinfo</div>
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(122,173,90,0.2);">
           <div style="color:#e8dfc0;font-weight:bold;font-size:11px;margin-bottom:6px">🧪 Felttest</div>
-          <a href="hyen.html" style="display:block;background:rgba(41,128,185,0.2);border:1px solid #5dade2;color:#5dade2;padding:8px 12px;border-radius:8px;font-size:11px;text-decoration:none;text-align:center;">🏔️ Åpne Hyen-testapp</a>
+          <a href="hyen.html" style="display:block;background:rgba(41,128,185,0.2);border:1px solid #5dade2;color:#5dade2;padding:8px 12px;border-radius:8px;font-size:11px;text-decoration:none;text-align:center;margin-bottom:8px;">🏔️ Åpne Hyen-testapp</a>
+          <div style="color:#e8dfc0;font-weight:bold;font-size:11px;margin-bottom:6px">🔐 Admin</div>
+          <button onclick="openAdmin()" style="display:block;width:100%;background:rgba(231,76,60,0.15);border:1px solid #e74c3c;color:#e74c3c;padding:8px 12px;border-radius:8px;font-size:11px;cursor:pointer;">🔑 Admin-panel</button>
         </div>
       </div>
     </div>
@@ -672,6 +674,15 @@ function togglePanel(){
 function closePanel(){
   document.getElementById('panel').classList.remove('open');
   document.getElementById('overlay').classList.remove('show');
+}
+
+function openAdmin(){
+  const code = prompt('Skriv inn admin-kode:');
+  if(code === 'bymarka2026'){
+    window.location.href = 'admin.html';
+  } else if(code !== null){
+    alert('Feil kode!');
+  }
 }
 
 if('serviceWorker' in navigator){
