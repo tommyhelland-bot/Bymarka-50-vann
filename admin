@@ -419,6 +419,123 @@ function showMsg(txt, duration=2500){
 
 // Init
 loadTracks();
+
+// ── VANN, PARKERING OG HYTTER PÅ KARTET ──────────────────────────────────────
+const TOUR_COLORS = {
+  1:"#e74c3c", 2:"#2980b9", 3:"#27ae60", 4:"#8e44ad", 5:"#d35400",
+  6:"#16a085", 7:"#c0392b", 8:"#2c3e50", 9:"#f39c12", 10:"#7f8c8d",
+  11:"#1abc9c", 12:"#e91e63", 13:"#ff5722", 14:"#9c27b0"
+};
+
+const lakeData = [
+  {id:1,name:"Baklidammen",lat:63.419240,lng:10.320980,tour:1},
+  {id:2,name:"Bangtjønna",lat:63.398110,lng:10.270140,tour:6},
+  {id:3,name:"Bjørktjønna",lat:63.383380,lng:10.237240,tour:12},
+  {id:4,name:"Blomstertjønna",lat:63.418780,lng:10.260960,tour:2},
+  {id:5,name:"Bosbergdammen",lat:63.415740,lng:10.166120,tour:11},
+  {id:6,name:"Bykleivvatnet",lat:63.393090,lng:10.201630,tour:8},
+  {id:7,name:"Damvatnet",lat:63.436942,lng:10.213388,tour:5},
+  {id:8,name:"Elsettjønna",lat:63.418690,lng:10.209870,tour:2},
+  {id:9,name:"Fagertjønna",lat:63.418922,lng:10.229167,tour:2},
+  {id:10,name:"Fålåtjønnan",lat:63.375700,lng:10.292010,tour:10},
+  {id:11,name:"Haukvatnet",lat:63.392810,lng:10.318100,tour:7},
+  {id:12,name:"Heisjøen",lat:63.387680,lng:10.180080,tour:8},
+  {id:13,name:"Herbernsdammen",lat:63.440200,lng:10.255180,tour:3},
+  {id:14,name:"Hestsjøen",lat:63.357070,lng:10.276500,tour:13},
+  {id:15,name:"Holstdammen",lat:63.442155,lng:10.286335,tour:4},
+  {id:16,name:"Jelleintjønna",lat:63.363140,lng:10.282510,tour:13},
+  {id:17,name:"Klokktjønna, Bynesmarka",lat:63.374510,lng:10.223450,tour:9},
+  {id:18,name:"Klokktjønna, Trondheimsmarka",lat:63.394290,lng:10.273150,tour:6},
+  {id:19,name:"Kobberdammen",lat:63.424060,lng:10.279960,tour:1},
+  {id:20,name:"Kongensåsvatnet",lat:63.436990,lng:10.225360,tour:5},
+  {id:21,name:"Kutjønna",lat:63.413218,lng:10.211946,tour:2},
+  {id:22,name:"Kvistingen",lat:63.409290,lng:10.212907,tour:2},
+  {id:23,name:"Kyvatnet",lat:63.404746,lng:10.341060,tour:7},
+  {id:24,name:"Kåttåtjønna",lat:63.374180,lng:10.286080,tour:10},
+  {id:25,name:"Lauglovatnet",lat:63.361660,lng:10.244140,tour:14},
+  {id:26,name:"Lianvatnet",lat:63.400710,lng:10.316820,tour:7},
+  {id:27,name:"Litlkvistingen",lat:63.415050,lng:10.209620,tour:2},
+  {id:28,name:"Litl-Leirsjøen",lat:63.385710,lng:10.254500,tour:12},
+  {id:29,name:"Litltjønna",lat:63.444080,lng:10.272492,tour:3},
+  {id:30,name:"Lomtjønnan",lat:63.404190,lng:10.199810,tour:2},
+  {id:31,name:"Lykkjadammen",lat:63.446750,lng:10.300930,tour:4},
+  {id:32,name:"Munkauntjønna",lat:63.444490,lng:10.313300,tour:4},
+  {id:33,name:"Nydammen",lat:63.438390,lng:10.291090,tour:4},
+  {id:34,name:"Ramnåsvatnet",lat:63.426960,lng:10.208220,tour:5},
+  {id:35,name:"Rognstjønna",lat:63.370500,lng:10.214520,tour:9},
+  {id:36,name:"Sagdammen",lat:63.365160,lng:10.199180,tour:9},
+  {id:37,name:"Skjellbreia",lat:63.396460,lng:10.241160,tour:12},
+  {id:38,name:"Stokkedammen",lat:63.418710,lng:10.342190,tour:1},
+  {id:39,name:"Stor-Leirsjøen",lat:63.384250,lng:10.281690,tour:6},
+  {id:40,name:"Svarttjønna, Bynesmarka",lat:63.387962,lng:10.198135,tour:8},
+  {id:41,name:"Svartjønna, Trolla",lat:63.441330,lng:10.300485,tour:4},
+  {id:42,name:"Svartvatnet, Flakk",lat:63.440761,lng:10.219654,tour:5},
+  {id:43,name:"Svarvatnet, Leinstrand",lat:63.377341,lng:10.248474,tour:14},
+  {id:44,name:"Sølvskakkeltjønna",lat:63.381320,lng:10.283320,tour:12},
+  {id:45,name:"Theisendammen",lat:63.421780,lng:10.345190,tour:1},
+  {id:46,name:"Tiendalsdammen",lat:63.441950,lng:10.311060,tour:4},
+  {id:47,name:"Tiknepptjønna",lat:63.429210,lng:10.287770,tour:1},
+  {id:48,name:"Trolltjern",lat:63.442823,lng:10.274413,tour:3},
+  {id:49,name:"Velikvatnet",lat:63.372360,lng:10.244560,tour:14},
+  {id:50,name:"Vintervatnet",lat:63.414500,lng:10.251860,tour:2},
+];
+
+const parkings = [
+  {name:"Baklia",lat:63.416380,lng:10.323414,tour:1},
+  {name:"Gråkallen P",lat:63.418025,lng:10.260590,tour:2},
+  {name:"Tømmerdalen",lat:63.433466,lng:10.271868,tour:3},
+  {name:"Trolla-parkeringen",lat:63.448263,lng:10.301603,tour:4},
+  {name:"Klefstadhaugen",lat:63.433153,lng:10.185674,tour:5},
+  {name:"Granåsen / Leirbrua",lat:63.380048,lng:10.313700,tour:6},
+  {name:"Kyvannet P",lat:63.407125,lng:10.343961,tour:7},
+  {name:"Oppland",lat:63.387827,lng:10.161498,tour:8},
+  {name:"Gaustad — Perstu",lat:63.363240,lng:10.193250,tour:9},
+  {name:"Nybron / Smistadgrenda",lat:63.369100,lng:10.306390,tour:10},
+  {name:"Bosbergaunet / Fortuna",lat:63.413049,lng:10.158222,tour:11},
+  {name:"Hestsjøen P",lat:63.358421,lng:10.280526,tour:13},
+  {name:"Skarsleite / Ringvål",lat:63.355647,lng:10.252480,tour:14},
+];
+
+const huts = [
+  {name:"Skistua",lat:63.417550,lng:10.261280},
+  {name:"Grønlia",lat:63.402430,lng:10.242810},
+  {name:"Lavollen",lat:63.423110,lng:10.304500},
+  {name:"Damhaugen",lat:63.442470,lng:10.290690},
+  {name:"Elgsethytta",lat:63.419290,lng:10.211540},
+  {name:"Rønningen",lat:63.378270,lng:10.262420},
+  {name:"Lian restaurant",lat:63.402440,lng:10.310550},
+];
+
+// Tegn vann
+lakeData.forEach(lake => {
+  const color = TOUR_COLORS[lake.tour] || '#888';
+  const icon = L.divIcon({
+    html: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><circle cx="11" cy="11" r="9" fill="${color}" stroke="white" stroke-width="1.5"/><text x="11" y="15" text-anchor="middle" font-size="8" font-weight="bold" font-family="monospace" fill="white">${lake.id}</text></svg>`,
+    className:'', iconSize:[22,22], iconAnchor:[11,11], popupAnchor:[0,-12]
+  });
+  L.marker([lake.lat,lake.lng], {icon}).bindPopup(
+    `<strong>${lake.id}. ${lake.name}</strong><br>Tur ${lake.tour}: ${TOUR_NAMES[lake.tour]||''}`
+  ).addTo(map);
+});
+
+// Tegn parkeringer
+parkings.forEach(p => {
+  const color = TOUR_COLORS[p.tour] || '#888';
+  const icon = L.divIcon({
+    html: `<div style="background:${color};color:white;font-weight:bold;font-size:10px;width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4)">P</div>`,
+    className:'', iconSize:[20,20], iconAnchor:[10,10], popupAnchor:[0,-12]
+  });
+  L.marker([p.lat,p.lng], {icon, zIndexOffset:-100}).bindPopup(`🅿️ ${p.name}`).addTo(map);
+});
+
+// Tegn hytter
+huts.forEach(h => {
+  const icon = L.divIcon({
+    html: '<div style="font-size:18px;line-height:1">🏠</div>',
+    className:'', iconSize:[20,20], iconAnchor:[10,18], popupAnchor:[0,-18]
+  });
+  L.marker([h.lat,h.lng], {icon}).bindPopup(`🏠 ${h.name}`).addTo(map);
+});
 </script>
 </body>
 </html>
