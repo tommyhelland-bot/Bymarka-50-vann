@@ -369,12 +369,18 @@ async function fetchRoute(coords){
 
 async function getApprovedTrack(tourId) {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/gps_tracks?tour_id=eq.${tourId}&approved=eq.true&app=eq.hyen&order=created_at.desc&limit=1`, {
+    const url = `${SUPABASE_URL}/rest/v1/gps_tracks?tour_id=eq.${tourId}&approved=eq.true&app=eq.hyen&order=created_at.desc&limit=1`;
+    console.log('Fetching approved track from:', url);
+    const res = await fetch(url, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const data = await res.json();
+    console.log('Supabase response:', data);
     return data && data.length > 0 ? data[0] : null;
-  } catch(e) { return null; }
+  } catch(e) { 
+    console.log('getApprovedTrack error:', e);
+    return null; 
+  }
 }
 
 async function getTrackCount(tourId) {
