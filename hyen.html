@@ -399,6 +399,8 @@ async function showRoute(tourId){
   // Sjekk godkjent GPS-spor i Supabase
   const approved = await getApprovedTrack(tourId);
   const count = await getTrackCount(tourId);
+  console.log('Approved track for tour', tourId, ':', approved);
+  console.log('Point count:', approved?.points?.length);
 
   // Vis statistikk i sidepanelet
   const detailEl = document.getElementById(`td-${tourId}`);
@@ -610,6 +612,8 @@ function updateLiveTrackLine(){
 function startGPSWatch(){
   if(!navigator.geolocation){ alert('GPS ikke tilgjengelig'); return; }
   trackWatchId = navigator.geolocation.watchPosition(pos => {
+    // Filtrer bort upresise punkter (over 50 meter nøyaktighet)
+    if(pos.coords.accuracy > 50) return;
     trackPoints.push({
       lat: pos.coords.latitude,
       lng: pos.coords.longitude,
