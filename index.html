@@ -747,12 +747,47 @@ if('serviceWorker' in navigator){
 }
 
 updateCounter();
+restoreTrackingIfNeeded();
 
 // ── GDPR & TRACKING ───────────────────────────────────────────────────────────
 let trackingActive = false;
 let trackPoints = [];
 let trackWatchId = null;
 let trackTourId = null;
+let wakeLock = null;
+
+async function acquireWakeLock(){
+  try {
+    if('wakeLock' in navigator){
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch(e){ console.log('WakeLock ikke tilgjengelig:', e); }
+}
+
+function releaseWakeLock(){
+  if(wakeLock){ wakeLock.release(); wakeLock = null; }
+}
+
+function restoreTrackingIfNeeded(){
+  const saved = localStorage.getItem('bymarka-active-track');
+  if(saved){
+    const data = JSON.parse(saved);
+    if(data && data.points && data.points.length > 0){
+      if(confirm(`Du har et uferdig spor med ${data.points.length} punkter fra Tur ${data.tourId}. Vil du fortsette?`)){
+        trackTourId = data.tourId;
+        trackPoints = data.points;
+        trackingActive = true;
+        document.getElementById('track-btn').textContent = '⏹️ Stopp sporing';
+        document.getElementById('track-btn').style.background = 'rgba(231,76,60,0.5)';
+        document.getElementById('tracking-banner').style.display = 'block';
+        document.getElementById('track-points').textContent = trackPoints.length;
+        startGPSWatch();
+      } else {
+        localStorage.removeItem('bymarka-active-track');
+      }
+    }
+  }
+}
 
 const SUPABASE_URL = 'https://ejkmdgwkautxabcunobc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_FrOKwahRQoYdPZpx6dD1Tg_mMyRt5pK';
@@ -812,7 +847,27 @@ function acceptTracking(){
   document.getElementById('track-btn').style.background = 'rgba(231,76,60,0.5)';
   document.getElementById('tracking-banner').style.display = 'block';
   document.getElementById('track-points').textContent = '0';
+  acquireWakeLock();
+  startGPSWatch();
+}
 
+let liveTrackLine = null;
+
+function updateLiveTrackLine(){
+  if(trackPoints.length < 2) return;
+  const latlngs = trackPoints.map(p => [p.lat, p.lng]);
+  if(liveTrackLine){
+    liveTrackLine.setLatLngs(latlngs);
+  } else {
+    const tour = tours.find(t => t.id === trackTourId);
+    const color = tour ? tour.color : '#e74c3c';
+    liveTrackLine = L.polyline(latlngs, {
+      color, weight: 4, opacity: 0.85
+    }).addTo(map);
+  }
+}
+
+function startGPSWatch(){
   if(!navigator.geolocation){ alert('GPS ikke tilgjengelig'); return; }
   trackWatchId = navigator.geolocation.watchPosition(pos => {
     trackPoints.push({
@@ -822,34 +877,51 @@ function acceptTracking(){
       t: Date.now()
     });
     document.getElementById('track-points').textContent = trackPoints.length;
+    updateLiveTrackLine();
+    // Løpende backup til localStorage
+    localStorage.setItem('bymarka-active-track', JSON.stringify({
+      tourId: trackTourId,
+      date: new Date().toISOString(),
+      points: trackPoints
+    }));
   }, err => {
     console.log('Track error:', err);
-  }, { enableHighAccuracy: true, maximumAge: 3000 });
+  }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 });
 }
 
 async function stopTracking(){
   if(trackWatchId) navigator.geolocation.clearWatch(trackWatchId);
+  releaseWakeLock();
+  // Fjern live-linje
+  if(liveTrackLine){ map.removeLayer(liveTrackLine); liveTrackLine = null; }
   trackingActive = false;
   document.getElementById('track-btn').textContent = '🔴 Spor tur';
   document.getElementById('track-btn').style.background = 'rgba(231,76,60,0.15)';
   document.getElementById('tracking-banner').style.display = 'none';
+
+  // Hent fra localStorage hvis trackPoints er tom
+  if(trackPoints.length < 5){
+    const saved = localStorage.getItem('bymarka-active-track');
+    if(saved){
+      const data = JSON.parse(saved);
+      if(data && data.points && data.points.length >= 5){
+        trackPoints = data.points;
+        trackTourId = data.tourId;
+      }
+    }
+  }
 
   if(trackPoints.length < 5){
     alert('For få GPS-punkter til å lagre ruten. Prøv igjen!');
     return;
   }
 
-  const track = {
-    tourId: trackTourId,
-    date: new Date().toISOString(),
-    points: trackPoints,
-  };
-
+  const track = { tourId: trackTourId, date: new Date().toISOString(), points: trackPoints };
   const ok = await saveTrackToSupabase(track);
+  localStorage.removeItem('bymarka-active-track');
   if(ok){
     alert(`✅ Tur lagret med ${trackPoints.length} GPS-punkter! Takk for bidraget 🏔️`);
   } else {
-    // Fallback til localStorage om Supabase feiler
     const existing = JSON.parse(localStorage.getItem('bymarka-tracks') || '[]');
     existing.push(track);
     localStorage.setItem('bymarka-tracks', JSON.stringify(existing));
