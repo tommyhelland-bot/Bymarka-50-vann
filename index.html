@@ -505,10 +505,13 @@ async function showRoute(tourId) {
   }
 
   // Hvis godkjent GPS-spor finnes — bruk det!
-  if (approved && approved.points && approved.points.length > 5) {
-    const latlngs = approved.points.map(p => [p.lat, p.lng]);
-    const line = L.polyline(latlngs, {color, weight: 4, opacity: 0.85}).addTo(map);
-    routeLayers.push(line);
+  if (approved) {
+    let points = approved.points;
+    if(typeof points === 'string') points = JSON.parse(points);
+    if (points && points.length > 5) {
+      const latlngs = points.map(p => [p.lat, p.lng]);
+      const line = L.polyline(latlngs, {color, weight: 4, opacity: 0.85}).addTo(map);
+      routeLayers.push(line);
 
     // Step numbers
     order.forEach((lakeId, idx) => {
@@ -521,6 +524,7 @@ async function showRoute(tourId) {
       routeLayers.push(L.marker([lake.lat, lake.lng], {icon:stepIcon, interactive:false, zIndexOffset:50}).addTo(map));
     });
     return;
+    }
   }
 
   // Fallback: ORS-ruting
