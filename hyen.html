@@ -167,18 +167,18 @@ const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjkxMmJhMzR
 // Vann rundt Hyen — koordinater fra norgeskart.no (WGS84)
 const lakeData = [
   // Tur 1: Vasslivatnet → Ommedalsstølen
-  { id:1, name:"Vasslivatnet",   lat:61.68267, lng:6.00257, tour:1, note:"Fint fjellvann med god utsikt." },
-  { id:2, name:"Ommedalsstølen", lat:61.68779, lng:5.95721, tour:1, note:"Aktiv støl med husdyrhold. Ta med matpakke!", type:"stol" },
+  { id:1, name:"Vasslivatnet",    lat:61.68267, lng:6.00257, tour:101, note:"Fint fjellvann med god utsikt." },
+  { id:2, name:"Ommedalsstølen", lat:61.68779, lng:5.95721, tour:101, note:"Aktiv støl med husdyrhold. Ta med matpakke!", type:"stol" },
 
   // Tur 2: Storevatnet og Veslevatnet → Gjengedalstølen
-  { id:3, name:"Storevatnet",    lat:61.67830, lng:6.08387, tour:2, note:"Stort vann i dalbunnen." },
-  { id:4, name:"Veslevatnet",    lat:61.66126, lng:6.05551, tour:2, note:"Mindre vann, rolig og fint." },
-  { id:5, name:"Gjengedalstølen",lat:61.67660, lng:6.04956, tour:2, note:"Aktiv støl med husdyrhold. Ta med matpakke!", type:"stol" },
+  { id:3, name:"Storevatnet",    lat:61.67830, lng:6.08387, tour:102, note:"Stort vann i dalbunnen." },
+  { id:4, name:"Veslevatnet",    lat:61.66126, lng:6.05551, tour:102, note:"Mindre vann, rolig og fint." },
+  { id:5, name:"Gjengedalstølen",lat:61.67660, lng:6.04956, tour:102, note:"Aktiv støl med husdyrhold. Ta med matpakke!", type:"stol" },
 ];
 
 const tours = [
   {
-    id: 1,
+    id: 101,
     name: "Vasslivatnet — Ommedalsstølen",
     parking: "Rv. 615 ved Røyrvik (estimert)",
     plat: 61.688534, plng: 5.954606,
@@ -190,7 +190,7 @@ const tours = [
     note: "Parkering langs rv. 615. Stølen er aktiv med husdyrhold — ta med matpakke!",
   },
   {
-    id: 2,
+    id: 102,
     name: "Storevatnet og Veslevatnet — Gjengedalstølen",
     parking: "Dalelia",
     plat: 61.660292, plng: 5.993557,
@@ -429,19 +429,13 @@ async function showRoute(tourId){
     return;
   }
 
-  // Fallback: ORS-ruting
+  // Fallback: stiplet luftlinje (ingen OSM-stier i Hyen)
   const waypoints = [{lat:tour.plat, lng:tour.plng}];
   order.forEach(id => { const l=lakeData.find(x=>x.id===id); if(l) waypoints.push({lat:l.lat,lng:l.lng}); });
   waypoints.push({lat:tour.plat, lng:tour.plng});
-
-  const coords = waypoints.map(w=>[w.lng,w.lat]);
-  const rc = await fetchRoute(coords);
-
-  if(rc){
-    routeLayers.push(L.polyline(rc,{color,weight:4,opacity:0.85}).addTo(map));
-  } else {
-    routeLayers.push(L.polyline(waypoints.map(w=>[w.lat,w.lng]),{color,weight:3,opacity:0.7,dashArray:'8,6'}).addTo(map));
-  }
+  routeLayers.push(L.polyline(waypoints.map(w=>[w.lat,w.lng]),{
+    color, weight:3, opacity:0.7, dashArray:'10,8'
+  }).addTo(map));
 
   order.forEach((id,idx)=>{
     const l=lakeData.find(x=>x.id===id);
@@ -533,6 +527,41 @@ let trackingActive = false;
 let trackPoints = [];
 let trackWatchId = null;
 let trackTourId = null;
+let wakeLock = null;
+
+async function acquireWakeLock(){
+  try {
+    if('wakeLock' in navigator){
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch(e){ console.log('WakeLock ikke tilgjengelig:', e); }
+}
+
+function releaseWakeLock(){
+  if(wakeLock){ wakeLock.release(); wakeLock = null; }
+}
+
+// Gjenopprett sporing hvis appen ble avbrutt
+function restoreTrackingIfNeeded(){
+  const saved = localStorage.getItem('hyen-active-track');
+  if(saved){
+    const data = JSON.parse(saved);
+    if(data && data.points && data.points.length > 0){
+      if(confirm(`Du har et uferdig spor med ${data.points.length} punkter. Vil du fortsette det?`)){
+        trackTourId = data.tourId;
+        trackPoints = data.points;
+        trackingActive = true;
+        document.getElementById('track-btn').textContent = '⏹️ Stopp';
+        document.getElementById('track-btn').style.background = 'rgba(231,76,60,0.5)';
+        document.getElementById('tracking-banner').style.display = 'block';
+        document.getElementById('track-points').textContent = trackPoints.length;
+        startGPSWatch();
+      } else {
+        localStorage.removeItem('hyen-active-track');
+      }
+    }
+  }
+}
 
 function startTrackingFlow(){
   if(trackingActive){ stopTracking(); return; }
@@ -551,32 +580,88 @@ function acceptTracking(){
   document.getElementById('track-btn').textContent = '⏹️ Stopp';
   document.getElementById('track-btn').style.background = 'rgba(231,76,60,0.5)';
   document.getElementById('tracking-banner').style.display = 'block';
+  document.getElementById('track-points').textContent = '0';
+  acquireWakeLock();
+  startGPSWatch();
+}
+
+let liveTrackLine = null;
+
+function updateLiveTrackLine(){
+  if(trackPoints.length < 2) return;
+  const latlngs = trackPoints.map(p => [p.lat, p.lng]);
+  if(liveTrackLine){
+    liveTrackLine.setLatLngs(latlngs);
+  } else {
+    const tour = tours.find(t => t.id === trackTourId);
+    const color = tour ? tour.color : '#e74c3c';
+    liveTrackLine = L.polyline(latlngs, {
+      color, weight: 4, opacity: 0.85, dashArray: null
+    }).addTo(map);
+  }
+}
+
+function startGPSWatch(){
   if(!navigator.geolocation){ alert('GPS ikke tilgjengelig'); return; }
   trackWatchId = navigator.geolocation.watchPosition(pos => {
-    trackPoints.push({ lat: pos.coords.latitude, lng: pos.coords.longitude, t: Date.now() });
+    trackPoints.push({
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      acc: pos.coords.accuracy,
+      t: Date.now()
+    });
     document.getElementById('track-points').textContent = trackPoints.length;
-  }, err => console.log('Track error:', err), { enableHighAccuracy: true, maximumAge: 3000 });
+    updateLiveTrackLine();
+    // Lagre løpende til localStorage som backup
+    localStorage.setItem('hyen-active-track', JSON.stringify({
+      tourId: trackTourId,
+      date: new Date().toISOString(),
+      points: trackPoints
+    }));
+  }, err => console.log('Track error:', err),
+  { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 });
 }
 
 async function stopTracking(){
   if(trackWatchId) navigator.geolocation.clearWatch(trackWatchId);
+  releaseWakeLock();
+  // Fjern live-linje
+  if(liveTrackLine){ map.removeLayer(liveTrackLine); liveTrackLine = null; }
   trackingActive = false;
   document.getElementById('track-btn').textContent = '🔴 Spor tur';
   document.getElementById('track-btn').style.background = 'rgba(231,76,60,0.15)';
   document.getElementById('tracking-banner').style.display = 'none';
+
+  // Hent fra localStorage hvis trackPoints er tom (appen ble avbrutt)
+  if(trackPoints.length < 5){
+    const saved = localStorage.getItem('hyen-active-track');
+    if(saved){
+      const data = JSON.parse(saved);
+      if(data && data.points && data.points.length >= 5){
+        trackPoints = data.points;
+        trackTourId = data.tourId;
+      }
+    }
+  }
+
   if(trackPoints.length < 5){ alert('For få GPS-punkter. Prøv igjen!'); return; }
+
   const track = { tourId: trackTourId, date: new Date().toISOString(), points: trackPoints };
   const ok = await saveTrackToSupabase(track);
+  localStorage.removeItem('hyen-active-track');
   if(ok){
     alert(`✅ Tur lagret med ${trackPoints.length} GPS-punkter! 🏔️`);
   } else {
     const existing = JSON.parse(localStorage.getItem('hyen-tracks') || '[]');
     existing.push(track);
     localStorage.setItem('hyen-tracks', JSON.stringify(existing));
-    alert(`✅ Lagret lokalt med ${trackPoints.length} punkter!`);
+    alert(`✅ Lagret lokalt med ${trackPoints.length} punkter! Sendes til server ved neste mulighet.`);
   }
   trackPoints = [];
 }
+
+// Gjenopprett ved oppstart
+restoreTrackingIfNeeded();
 </script>
 </body>
 </html>
